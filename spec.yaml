@@ -1,0 +1,12 @@
+id:  # Unique workflow identifier (kebab-case)
+requirements: # Package dependencies with channels
+  - name: ecoscope-workflows-core
+    version: "0.18.0"
+    channel: https://repo.prefix.dev/ecoscope-workflows/
+
+# List of tasks in execution order
+workflow:
+  - name:  # Display name used for the configuration form UI
+    description:  # Description used for the configuration form
+    id:  # Unique task identifier (snake_case)
+    task:  # Function name from task library
