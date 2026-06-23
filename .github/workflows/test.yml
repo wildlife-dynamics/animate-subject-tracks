@@ -1,0 +1,150 @@
+name: Test Workflows with Published Packages
+
+on:
+  pull_request:
+    types: [labeled, unlabeled, opened, synchronize, reopened]
+
+jobs:
+  discover:
+    uses: ./.github/workflows/_discover.yml
+
+  recompile-workflows:
+    needs: [discover]
+    uses: ./.github/workflows/_recompile.yml
+    with:
+      workflow_id: ${{ needs.discover.outputs.workflow_id }}
+      download-artifacts: false
+
+  validate-spec:
+    if: needs.discover.outputs.workflow_id != ''
+    needs: [discover]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate spec.yaml requirements
+        run: |
+          SPEC_FILE="spec.yaml"
+
+          if [ ! -f "$SPEC_FILE" ]; then
+            echo "⚠️  Warning: spec.yaml not found at $SPEC_FILE"
+            exit 0
+          fi
+
+          echo "Validating $SPEC_FILE..."
+
+          # Check for wildcard versions in requirements
+          if grep -A 2 "^requirements:" "$SPEC_FILE" | grep -E '^\s+version:\s*["\x27]?\*["\x27]?\s*$'; then
+            echo "❌ Error: Found wildcard version (*) in requirements"
+            echo "When using published packages, all versions must be pinned to specific versions"
+            grep -B 1 -A 2 "version.*\*" "$SPEC_FILE" || true
+            exit 1
+          fi
+
+          # Check for file:// channels in requirements
+          if grep -A 2 "^requirements:" "$SPEC_FILE" | grep -E '^\s+channel:\s*["\x27]?file://'; then
+            echo "❌ Error: Found local file channel (file://) in requirements"
+            echo "When using published packages, all channels must be remote URLs"
+            grep -B 1 -A 2 "channel.*file://" "$SPEC_FILE" || true
+            exit 1
+          fi
+
+          echo "✅ spec.yaml validation passed"
+      
+      - name: Validate test-cases.yaml
+        run: |
+          TEST_CASES_FILE="test-cases.yaml"
+
+          # Validate test-cases.yaml exists
+          if [ ! -f "$TEST_CASES_FILE" ]; then
+            echo "❌ Error: test-cases.yaml not found at $TEST_CASES_FILE"
+            echo "Every workflow must have a test-cases.yaml file with at least one test case"
+            exit 1
+          fi
+
+          echo "Validating $TEST_CASES_FILE..."
+
+          # Check that test-cases.yaml has at least one top-level key (test case)
+          # Exclude commented lines and empty lines
+          TEST_CASE_COUNT=$(grep -E '^[a-zA-Z0-9_-]+:' "$TEST_CASES_FILE" | wc -l | tr -d ' ')
+
+          if [ "$TEST_CASE_COUNT" -eq 0 ]; then
+            echo "❌ Error: No test cases found in $TEST_CASES_FILE"
+            echo "test-cases.yaml must contain at least one test case"
+            echo "Example format:"
+            echo "  my-test-case:"
+            echo "    params:"
+            echo "      ..."
+            exit 1
+          fi
+
+          echo "✅ test-cases.yaml validation passed ($TEST_CASE_COUNT test case(s) found)"
+
+      - name: Validate VERSION is bumped
+        run: |
+          WORKFLOW_DIR_NAME=$(echo "${{ needs.discover.outputs.workflow_id }}" | tr '_' '-')
+          GENERATED_DIR="ecoscope-workflows-${WORKFLOW_DIR_NAME}-workflow"
+          VERSION_FILE="${GENERATED_DIR}/VERSION.yaml"
+
+          # Parse current branch version
+          CUR_MAJ=$(grep -oP 'MAJ:\s*\K[0-9]+' "$VERSION_FILE")
+          CUR_MIN=$(grep -oP 'MIN:\s*\K[0-9]+' "$VERSION_FILE")
+          CUR_PATCH=$(grep -oP 'PATCH:\s*\K[0-9]+' "$VERSION_FILE" || echo "0")
+          CUR_VERSION="${CUR_MAJ}.${CUR_MIN}.${CUR_PATCH}"
+          echo "Current version: ${CUR_VERSION}"
+
+          # Parse main branch version
+          MAIN_MAJ=0; MAIN_MIN=0; MAIN_PATCH=0
+          if git show origin/main:"${VERSION_FILE}" > /tmp/main_version.yaml 2>/dev/null; then
+            MAIN_MAJ=$(grep -oP 'MAJ:\s*\K[0-9]+' /tmp/main_version.yaml)
+            MAIN_MIN=$(grep -oP 'MIN:\s*\K[0-9]+' /tmp/main_version.yaml)
+            MAIN_PATCH=$(grep -oP 'PATCH:\s*\K[0-9]+' /tmp/main_version.yaml || echo "0")
+          fi
+          MAIN_VERSION="${MAIN_MAJ}.${MAIN_MIN}.${MAIN_PATCH}"
+          echo "Main branch version: ${MAIN_VERSION}"
+
+          # Compare: current must be strictly greater than main
+          CUR_NUM=$((CUR_MAJ * 1000000 + CUR_MIN * 1000 + CUR_PATCH))
+          MAIN_NUM=$((MAIN_MAJ * 1000000 + MAIN_MIN * 1000 + MAIN_PATCH))
+
+          if [ "$CUR_NUM" -le "$MAIN_NUM" ]; then
+            echo "::error::VERSION.yaml (${CUR_VERSION}) must be greater than main branch (${MAIN_VERSION})"
+            exit 1
+          fi
+
+          echo "Version check passed: ${CUR_VERSION} > ${MAIN_VERSION}"
+
+  test-workflows:
+    needs: [discover]
+    if: |
+      needs.discover.outputs.workflow_id != ''
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          pixi-version: v0.60.0
+
+      - name: Write GEE key to file
+        env:
+          EE_KEY_JSON: ${{ secrets.EE_KEY_JSON }}
+        if: env.EE_KEY_JSON != ''
+        run: |
+          echo "${{ secrets.EE_KEY_JSON }}" > gee-key.json
+
+      - name: Run all workflow test cases
+        shell: bash
+        env:
+          # Add your GitHub secrets here
+          # They will be available to the workflow
+          ECOSCOPE_WORKFLOWS__CONNECTIONS__EARTHRANGER__MEP_DEV__SERVER: ${{ secrets.ER_SERVER }}
+          ECOSCOPE_WORKFLOWS__CONNECTIONS__EARTHRANGER__MEP_DEV__PASSWORD: ${{ secrets.ER_PASSWORD }}
+          ECOSCOPE_WORKFLOWS__CONNECTIONS__EARTHRANGER__MEP_DEV__USERNAME: ${{ secrets.ER_USERNAME }}
+        run: |
+          chmod +x dev/pytest-cli.sh || true
+          pixi run --manifest-path pixi.toml -e default bash dev/pytest-cli.sh ${{ needs.discover.outputs.workflow_id }} --all

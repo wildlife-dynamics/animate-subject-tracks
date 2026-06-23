@@ -1,0 +1,295 @@
+{
+  "properties": {
+    "workflow_details": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Workflow Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Workflow Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object",
+      "description": "Add information that will help to differentiate this workflow from another.",
+      "title": "Set workflow details"
+    },
+    "er_client_name": {
+      "additionalProperties": false,
+      "properties": {
+        "data_source": {
+          "$ref": "#/$defs/EarthRangerConnection",
+          "title": "",
+          "description": "Select one of your configured data sources."
+        }
+      },
+      "required": [
+        "data_source"
+      ],
+      "type": "object",
+      "title": "Connect to earth ranger"
+    },
+    "time_range": {
+      "additionalProperties": false,
+      "properties": {
+        "since": {
+          "format": "date-time",
+          "title": "Since",
+          "type": "string",
+          "description": "The start time"
+        },
+        "until": {
+          "format": "date-time",
+          "title": "Until",
+          "type": "string",
+          "description": "The end time"
+        },
+        "timezone": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/TimezoneInfo"
+            }
+          ],
+          "default": null,
+          "title": "Timezone"
+        },
+        "time_format": {
+          "default": "%d %b %Y %H:%M:%S",
+          "title": "Time Format",
+          "type": "string",
+          "description": "The time format",
+          "ecoscope:advanced": true
+        }
+      },
+      "required": [
+        "since",
+        "until"
+      ],
+      "type": "object",
+      "description": "Choose the period of time to analyze.",
+      "title": "Define analysis time range"
+    },
+    "Subject Group": {
+      "type": "object",
+      "description": "Choose subject group to generate collar voltage charts and overall speedmap",
+      "ecoscope:task_group": true,
+      "properties": {
+        "subject_group_var": {
+          "additionalProperties": false,
+          "properties": {
+            "var": {
+              "title": "Subject Group Name",
+              "type": "string",
+              "default": "Elephants"
+            }
+          },
+          "required": [
+            "var"
+          ],
+          "type": "object",
+          "title": ""
+        }
+      }
+    },
+    "convert_to_trajs": {
+      "additionalProperties": false,
+      "properties": {
+        "trajectory_segment_filter": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/TrajectorySegmentFilter"
+            }
+          ],
+          "default": {
+            "min_length_meters": 0.001,
+            "max_length_meters": 100000,
+            "min_time_secs": 1,
+            "max_time_secs": 172800,
+            "min_speed_kmhr": 0.01,
+            "max_speed_kmhr": 500
+          },
+          "title": " ",
+          "description": "Filter track data by setting limits on track segment length, duration, and speed. Segments outside these bounds are removed, reducing noise and to focus on meaningful movement patterns.",
+          "ecoscope:advanced": true
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Convert relocations to trajectories"
+    },
+    "draw_animation": {
+      "additionalProperties": false,
+      "properties": {
+        "animation": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/TimelineAnimation"
+            }
+          ],
+          "default": {
+            "fade_ratio": 0.955,
+            "animation_speed": 10000.0,
+            "fps_limit": 30
+          },
+          "title": "Animation",
+          "description": "Timeline settings.",
+          "ecoscope:advanced": true
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Draw animated map"
+    }
+  },
+  "$defs": {
+    "EarthRangerConnection": {
+      "properties": {
+        "name": {
+          "title": "Data Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "EarthRangerConnection",
+      "type": "object"
+    },
+    "TimezoneInfo": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "tzCode": {
+          "title": "Tzcode",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "utc": {
+          "title": "Utc",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "tzCode",
+        "name",
+        "utc"
+      ],
+      "title": "TimezoneInfo",
+      "type": "object"
+    },
+    "TrajectorySegmentFilter": {
+      "properties": {
+        "min_length_meters": {
+          "default": 0.001,
+          "ecoscope:advanced": true,
+          "minimum": 0.001,
+          "title": "Minimum Segment Length (Meters)",
+          "type": "number"
+        },
+        "max_length_meters": {
+          "default": 100000,
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.001,
+          "title": "Maximum Segment Length (Meters)",
+          "type": "number"
+        },
+        "min_time_secs": {
+          "default": 1,
+          "ecoscope:advanced": true,
+          "minimum": 1,
+          "title": "Minimum Segment Duration (Seconds)",
+          "type": "number"
+        },
+        "max_time_secs": {
+          "default": 172800,
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 1,
+          "title": "Maximum Segment Duration (Seconds)",
+          "type": "number"
+        },
+        "min_speed_kmhr": {
+          "default": 0.01,
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.001,
+          "title": "Minimum Segment Speed (Kilometers per Hour)",
+          "type": "number"
+        },
+        "max_speed_kmhr": {
+          "default": 500,
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.001,
+          "title": "Maximum Segment Speed (Kilometers per Hour)",
+          "type": "number"
+        }
+      },
+      "title": "TrajectorySegmentFilter",
+      "type": "object"
+    },
+    "TimelineAnimation": {
+      "description": "Settings for an animated TripsLayer timeline.\n\nEither construct directly, or derive from data with\ntimeline_animation_from_gdf(). All time fields are in the same\nunits as the layer's timestamps (typically seconds).",
+      "properties": {
+        "fade_ratio": {
+          "default": 0.05,
+          "description": "Comet-tail length as a fraction of the total time span (0\u20131].",
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "title": "Fade Ratio",
+          "type": "number"
+        },
+        "animation_speed": {
+          "default": 10000.0,
+          "description": "Amount currentTime advances per tick (per-frame increment).",
+          "exclusiveMinimum": 0.0,
+          "title": "Animation Speed",
+          "type": "number"
+        },
+        "fps_limit": {
+          "default": 20.0,
+          "description": "Maximum animation frames per second.",
+          "exclusiveMinimum": 0.0,
+          "title": "Fps Limit",
+          "type": "number"
+        }
+      },
+      "title": "TimelineAnimation",
+      "type": "object"
+    }
+  },
+  "uiSchema": {
+    "workflow_details": {
+      "ui:order": [
+        "name",
+        "description"
+      ]
+    },
+    "time_range": {
+      "ui:order": [
+        "since",
+        "until",
+        "timezone",
+        "time_format"
+      ]
+    },
+    "ui:order": [
+      "workflow_details",
+      "er_client_name",
+      "time_range",
+      "Subject Group",
+      "convert_to_trajs",
+      "draw_animation"
+    ]
+  },
+  "additionalProperties": false
+}

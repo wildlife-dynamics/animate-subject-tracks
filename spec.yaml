@@ -1,12 +1,272 @@
-id:  # Unique workflow identifier (kebab-case)
-requirements: # Package dependencies with channels
+id: animate_tracks
+requirements:
   - name: ecoscope-workflows-core
-    version: "0.18.0"
+    version: "0.22.17.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
-# List of tasks in execution order
+  - name: ecoscope-workflows-ext-ecoscope
+    version: "0.22.17.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows/
+
+  - name: pydeck
+    version: 0.9.2
+    channel: conda-forge
+
+  - name: ecoscope-workflows-ext-custom
+    version: "0.0.56.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
+  - name: ecoscope-workflows-ext-ste
+    version: "0.0.22.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
+  - name: ecoscope-workflows-ext-mnc
+    version: "0.0.7.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
+  - name: ecoscope-workflows-ext-big-life
+    version: "0.0.8.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
+  - name: ecoscope-workflows-ext-mep
+    version: "0.0.21.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
+rjsf-overrides:
+  properties:
+    Subject Group.properties.subject_group_var.properties.var.title: Subject Group Name
+    Subject Group.properties.subject_group_var.properties.var.default: Elephants
+    draw_animation.properties.animation.default:
+      fade_ratio: 0.955
+      animation_speed: 10000.0
+      fps_limit: 30
+    
+task-instance-defaults:
+  skipif:
+    conditions:
+      - any_is_empty_df
+      - any_dependency_skipped
+
 workflow:
-  - name:  # Display name used for the configuration form UI
-    description:  # Description used for the configuration form
-    id:  # Unique task identifier (snake_case)
-    task:  # Function name from task library
+  # set workflow details
+  - name: Set workflow details
+    id: workflow_details
+    task: set_workflow_details
+
+  - name: Connect to earth ranger
+    id: er_client_name
+    task: set_er_connection 
+
+  # define time range
+  - name: Define analysis time range
+    id: time_range
+    task: set_time_range
+
+  # set groupers -- limiting this to subject_name
+  - name: Configure grouping strategy
+    id: groupers
+    task: set_groupers
+    partial:
+      groupers: []
+
+  # get relocations:collar voltages for subjects and persist file
+  - title: Subject Group
+    type: task-group
+    description: Choose subject group to generate collar voltage charts and overall speedmap
+    tasks:
+      - name: null
+        id: subject_group_var
+        task: set_string_var
+
+  - name: Get subject group observations
+    id: subject_observations
+    task: get_subjectgroup_observations
+    partial:
+      filter: clean
+      client: ${{ workflow.er_client_name.return }}
+      time_range: ${{ workflow.time_range.return }}
+      subject_group_name: ${{ workflow.subject_group_var.return }} # pass this to word doc
+      raise_on_empty: false
+      include_details: true
+      include_subjectsource_details: true
+
+  - name: Transform observations to relocations
+    id: subject_reloc
+    task: process_relocations
+    partial:
+      observations: ${{ workflow.subject_observations.return }}
+      relocs_columns:
+        - groupby_col
+        - fixtime
+        - junk_status
+        - geometry
+        - extra__subject__name
+        - extra__subject__hex
+        - extra__subject__sex
+        - extra__created_at
+        - extra__subject__subject_subtype
+        - extra__subjectsource__id
+        - extra__subjectsource__assigned_range
+        - extra__observation_details
+
+      filter_point_coords:
+        - x: 180.000000
+          y: 90.000000
+        - x: 0.000000
+          y: 0.000000
+        - x: 1.000000
+          y: 1.000000
+
+  - name: Convert relocations to trajectories 
+    id: convert_to_trajs 
+    task: relocations_to_trajectory 
+    partial: 
+      relocations: ${{ workflow.subject_reloc.return }}
+
+  - name: Rename trajectory columns
+    id: rename_traj_cols
+    task: map_columns 
+    partial:
+      raise_if_not_found: false
+      df: ${{ workflow.convert_to_trajs.return }}
+      drop_columns: []
+      retain_columns: [] 
+      rename_columns:
+        extra__hex: hex_color
+        extra__name: subject_name
+        extra__sex: subject_sex
+        extra__subject_subtype: subject_subtype
+        extra__created_at: created_at
+
+  - name: Persist relocations as geoparquet 
+    id: persist_relocs_geoparquet
+    task: persist_df 
+    partial: 
+      df: ${{ workflow.subject_reloc.return }}
+      filetype: geoparquet 
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename: relocations
+
+  - name: Persist trajectories as geoparquet 
+    id: persist_trajs_geoparquet
+    task: persist_df 
+    partial: 
+      df: ${{ workflow.rename_traj_cols.return }}
+      filetype: geoparquet 
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename: trajectories
+
+  - name: Convert trajectories to pydeck trip objects 
+    id: trajs_trips 
+    task: trajectory_to_trips
+    partial:
+      trajectory_gdf: ${{ workflow.rename_traj_cols.return }}
+      subject_name_col: subject_name 
+      subject_hex_col: hex_color
+      terrain: 
+        offset: 30 
+        zoom: 12 
+        vertical_scale: 2.5 
+        ground_elevation: 1500
+        cache_dir: null 
+      
+  - name: Create terrain layer 
+    id: terrain_layer 
+    task: create_terrain_layer 
+    partial: 
+      elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+      texture: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+      elevation_scale: 2.5 
+      wireframe: false 
+      min_zoom: 0 
+      max_zoom: 14 
+      extruded: false
+      elevation_decoder:
+        rScaler: 256
+        gScaler: 1
+        bScaler: 0.00390625
+        offset: -32768
+
+  - name: Get trips view state 
+    id: trips_view_state 
+    task: view_state_deck_gdf 
+    partial: 
+      gdf: ${{ workflow.trajs_trips.return }}
+      pitch: 50
+      bearing: 30 
+  
+  - name: Normalize trips timestamps 
+    id: normalize_trips 
+    task: normalize_timestamps 
+    partial: 
+      target_span: null 
+      df: ${{ workflow.trajs_trips.return }}
+
+  - name: Create trips layer 
+    id: trips_layer 
+    task: create_trips_layer 
+    partial: 
+      geodataframe: ${{ workflow.normalize_trips.return }}
+      data_url: null 
+      layer_style: 
+        get_timestamps: timestamps 
+        get_color: color 
+        get_width: 2.2
+        width_units: pixels 
+        width_scale: 1
+        width_min_pixels: 2
+        width_max_pixels : 8
+        cap_rounded: false 
+        joint_rounded: true 
+        billboard: false 
+        fade_trail: true 
+
+      trail_frac: null 
+      current_frac: null 
+      legend: 
+        title: Subjects 
+        label_column: name 
+        color_column: color
+        sort: ascending 
+        label_suffix: null 
+  
+  - name: Draw animated map 
+    id: draw_animation
+    task: draw_animated_map 
+    partial: 
+      geo_layers: 
+        - ${{ workflow.trips_layer.return }}
+      tile_layers: 
+        - ${{ workflow.terrain_layer.return }}
+      static: false
+      legend_style:
+        placement: "bottom-right"
+      max_zoom: 15 
+      title: null 
+      view_state: ${{ workflow.trips_view_state.return }}
+        
+  - name: Persist map
+    id: map_urls
+    task: persist_text
+    partial:
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      text: ${{ workflow.draw_animation.return }}
+      filename: animated_map.html
+
+    # Map widgets
+  - name: Create animated Widget
+    id: animated_map_widget
+    task: create_map_widget_single_view
+    partial:
+      title: "Subject movements"
+      data: ${{ workflow.map_urls.return }}
+
+  - name: Generate Dashboard
+    id: animate_dashboard
+    task: gather_dashboard
+    partial:
+      details: ${{ workflow.workflow_details.return }}
+      widgets:
+        - ${{ workflow.animated_map_widget.return }}
+      time_range: ${{ workflow.time_range.return }}
+      groupers: ${{ workflow.groupers.return }}

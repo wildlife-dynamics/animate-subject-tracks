@@ -1,0 +1,87 @@
+name: Recompile Workflows
+
+on:
+  workflow_call:
+    inputs:
+      workflow_id:
+        description: "The workflow id"
+        required: true
+        type: string
+      download-artifacts:
+        description: "Whether to download build artifacts"
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  recompile-workflows:
+    if: inputs.workflow_id != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download conda channel
+        if: inputs.download-artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: /tmp/ecoscope-workflows-custom/release/artifacts
+
+      - name: Log conda channel contents
+        if: inputs.download-artifacts
+        run: ls -lR /tmp/ecoscope-workflows-custom/release/artifacts
+
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          pixi-version: v0.60.0
+
+      - name: Clean pixi cache
+        if: inputs.download-artifacts
+        run: pixi clean cache --yes
+
+      - name: Recompile workflow
+        run: |
+          pixi run --manifest-path pixi.toml --locked bash -c "./dev/recompile.sh --update"
+
+      - name: Check for differences in generated files
+        run: |
+          WORKFLOW_DIR_NAME=$(echo "${{ inputs.workflow_id }}" | tr '_' '-')
+          GENERATED_DIR="ecoscope-workflows-${WORKFLOW_DIR_NAME}-workflow"
+          EXCLUDE_PATTERNS=":(exclude)${GENERATED_DIR}/pixi.lock :(exclude)${GENERATED_DIR}/README.md :(exclude)${GENERATED_DIR}/VERSION.yaml :(exclude)${GENERATED_DIR}/graph.png"
+
+          echo "Checking for differences in ${GENERATED_DIR}"
+
+          if [ ! -d "${GENERATED_DIR}" ]; then
+            echo "::error::Generated directory ${GENERATED_DIR} does not exist!"
+            exit 1
+          fi
+
+          # Exclude auto-generated files: pixi.lock (dependency resolution), VERSION.yaml (auto-versioned), graph.png (binary)
+          if ! git diff --exit-code -- "${GENERATED_DIR}" ${EXCLUDE_PATTERNS}; then
+            echo ""
+            echo "::error::Generated files differ from committed files in ${GENERATED_DIR}"
+            echo "::error::Please run the compilation locally and commit the changes."
+            exit 1
+          else
+            echo "No differences found - generated files are up to date!"
+          fi
+
+      - name: Validate excluded files exist
+        run: |
+          WORKFLOW_DIR_NAME=$(echo "${{ inputs.workflow_id }}" | tr '_' '-')
+          GENERATED_DIR="ecoscope-workflows-${WORKFLOW_DIR_NAME}-workflow"
+          errors=0
+
+          for file in pixi.lock VERSION.yaml README.md; do
+            if [ ! -f "${GENERATED_DIR}/${file}" ]; then
+              echo "::error::${GENERATED_DIR}/${file} does not exist!"
+              errors=$((errors + 1))
+            else
+              echo "OK: ${GENERATED_DIR}/${file}"
+            fi
+          done
+
+          if [ $errors -gt 0 ]; then
+            exit 1
+          fi

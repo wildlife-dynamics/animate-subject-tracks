@@ -1,0 +1,29 @@
+[workspace]
+platforms = ['linux-64', 'osx-arm64', 'osx-64', 'win-64']
+
+name = "animate_subject_tracks"
+channels = [
+  'https://repo.prefix.dev/ecoscope-workflows/',
+  'conda-forge',
+  'https://repo.prefix.dev/ecoscope-workflows-custom/',
+
+]
+[dependencies]
+curl = "*"
+rattler-build = "*"
+yq = "*"
+hatch = "*"
+pip = "*"
+hatch-vcs = "*"
+
+[feature.compile.dependencies]
+ecoscope-workflows-ext-mep = "0.0.21.*"
+ecoscope-workflows-ext-lion-guardians = "0.0.6.*"
+ecoscope-workflows-ext-mnc = "0.0.9.*"
+ecoscope-workflows-ext-ste = "0.0.22.*"
+ecoscope-workflows-ext-big-life = "0.0.11.*"
+ecoscope-workflows-core = "0.22.17.*"
+ecoscope-workflows-ext-custom = "0.0.57.*"
+
+[environments]
+compile = { features = ["compile"], no-default-feature = true }

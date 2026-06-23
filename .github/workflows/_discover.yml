@@ -1,0 +1,38 @@
+name: Discover Workflows
+
+on:
+  workflow_call:
+    outputs:
+      workflow_id:
+        description: "The workflow id"
+        value: ${{ jobs.discover-workflows.outputs.workflow_id }}
+
+jobs:
+  discover-workflows:
+    runs-on: ubuntu-latest
+    outputs:
+      workflow_id: ${{ steps.find-workflows.outputs.workflow_id }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history to enable git diff
+
+      - name: Find workflow folders
+        id: find-workflows
+        run: |
+          # Parse the id field from spec.yaml
+          if [ -f "spec.yaml" ]; then
+            workflow_id=$(grep '^id:' spec.yaml | head -n 1 | sed 's/^id: *//' | tr -d '\r')
+
+            if [ -n "$workflow_id" ]; then
+              echo "Found workflow ID from spec.yaml: $workflow_id"
+              echo "workflow_id=$workflow_id" >> $GITHUB_OUTPUT
+            else
+              echo "No workflow ID found in spec.yaml"
+              echo "workflow_id=" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "spec.yaml not found"
+            echo "workflow_id=" >> $GITHUB_OUTPUT
+          fi
