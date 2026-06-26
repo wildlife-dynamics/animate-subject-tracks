@@ -43,6 +43,9 @@ from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
     relocations_to_trajectory as relocations_to_trajectory,
 )
 from ecoscope_workflows_ext_mep.tasks import (
+    create_elevation_decoder as create_elevation_decoder,
+)
+from ecoscope_workflows_ext_mep.tasks import (
     create_terrain_layer as create_terrain_layer,
 )
 from ecoscope_workflows_ext_mep.tasks import create_trips_layer as create_trips_layer
@@ -50,6 +53,7 @@ from ecoscope_workflows_ext_mep.tasks import draw_animated_map as draw_animated_
 from ecoscope_workflows_ext_mep.tasks import (
     normalize_timestamps as normalize_timestamps,
 )
+from ecoscope_workflows_ext_mep.tasks import render_animation as render_animation
 from ecoscope_workflows_ext_mep.tasks import trajectory_to_trips as trajectory_to_trips
 from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
 
@@ -73,13 +77,15 @@ def main(params: Params):
         "rename_traj_cols": ["convert_to_trajs"],
         "persist_relocs_geoparquet": ["subject_reloc"],
         "persist_trajs_geoparquet": ["rename_traj_cols"],
-        "trajs_trips": ["rename_traj_cols"],
-        "terrain_layer": [],
+        "terrain_exaggeration": [],
+        "trajs_trips": ["rename_traj_cols", "terrain_exaggeration"],
+        "terrain_layer": ["terrain_exaggeration"],
         "trips_view_state": ["trajs_trips"],
         "normalize_trips": ["trajs_trips"],
         "trips_layer": ["normalize_trips"],
         "draw_animation": ["trips_layer", "terrain_layer", "trips_view_state"],
         "map_urls": ["draw_animation"],
+        "create_animation": ["map_urls"],
         "animated_map_widget": ["map_urls"],
         "animate_dashboard": [
             "workflow_details",
@@ -332,6 +338,28 @@ def main(params: Params):
             | (params_dict.get("persist_trajs_geoparquet") or {}),
             method="call",
         ),
+        "terrain_exaggeration": Node(
+            async_task=create_elevation_decoder.validate()
+            .set_task_instance_id("terrain_exaggeration")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "r_scaler": 256,
+                "g_scaler": 1.0,
+                "b_scaler": 0.00390625,
+                "offset": -32768.0,
+            }
+            | (params_dict.get("terrain_exaggeration") or {}),
+            method="call",
+        ),
         "trajs_trips": Node(
             async_task=trajectory_to_trips.validate()
             .set_task_instance_id("trajs_trips")
@@ -350,11 +378,12 @@ def main(params: Params):
                 "subject_name_col": "subject_name",
                 "subject_hex_col": "hex_color",
                 "terrain": {
+                    "zoom": 15,
                     "offset": 30,
-                    "zoom": 12,
-                    "vertical_scale": 2.5,
-                    "ground_elevation": 1500,
                     "cache_dir": None,
+                    "ground_elevation": 1500,
+                    "elevation_decoder": DependsOn("terrain_exaggeration"),
+                    "elevation_data": "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
                 },
             }
             | (params_dict.get("trajs_trips") or {}),
@@ -374,19 +403,12 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
+                "min_zoom": 0,
+                "max_zoom": 15,
                 "elevation_data": "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
                 "texture": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                "elevation_scale": 2.5,
                 "wireframe": False,
-                "min_zoom": 0,
-                "max_zoom": 14,
-                "extruded": False,
-                "elevation_decoder": {
-                    "rScaler": 256,
-                    "gScaler": 1,
-                    "bScaler": 0.00390625,
-                    "offset": -32768,
-                },
+                "elevation_decoder": DependsOn("terrain_exaggeration"),
             }
             | (params_dict.get("terrain_layer") or {}),
             method="call",
@@ -406,8 +428,8 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "gdf": DependsOn("trajs_trips"),
-                "pitch": 50,
-                "bearing": 30,
+                "pitch": 0,
+                "bearing": 0,
             }
             | (params_dict.get("trips_view_state") or {}),
             method="call",
@@ -451,18 +473,18 @@ def main(params: Params):
                 "layer_style": {
                     "get_timestamps": "timestamps",
                     "get_color": "color",
-                    "get_width": 2.2,
+                    "get_width": 2.25,
                     "width_units": "pixels",
                     "width_scale": 1,
-                    "width_min_pixels": 2,
-                    "width_max_pixels": 8,
-                    "cap_rounded": False,
+                    "width_min_pixels": 1,
+                    "width_max_pixels": 5,
+                    "cap_rounded": True,
                     "joint_rounded": True,
                     "billboard": False,
                     "fade_trail": True,
+                    "current_time": 0,
+                    "trail_length": 120,
                 },
-                "trail_frac": None,
-                "current_frac": None,
                 "legend": {
                     "title": "Subjects",
                     "label_column": "name",
@@ -495,12 +517,30 @@ def main(params: Params):
                     DependsOn("terrain_layer"),
                 ],
                 "static": False,
+                "max_zoom": 15,
+                "title": None,
                 "legend_style": {
                     "placement": "bottom-right",
                 },
-                "max_zoom": 15,
-                "title": None,
                 "view_state": DependsOn("trips_view_state"),
+                "entry_pitch": 0,
+                "entry_bearing": 0,
+                "animation": {
+                    "fade_ratio": 1.0,
+                    "fps_limit": 30,
+                    "show_history": True,
+                    "history_color": [
+                        255,
+                        255,
+                        255,
+                    ],
+                    "history_opacity": 1.0,
+                    "fade_history": True,
+                    "show_head": True,
+                    "head_radius": 1.75,
+                    "head_color": None,
+                    "head_outline_width": 1.05,
+                },
             }
             | (params_dict.get("draw_animation") or {}),
             method="call",
@@ -524,6 +564,58 @@ def main(params: Params):
                 "filename": "animated_map.html",
             }
             | (params_dict.get("map_urls") or {}),
+            method="call",
+        ),
+        "create_animation": Node(
+            async_task=render_animation.validate()
+            .set_task_instance_id("create_animation")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "html_path": DependsOn("map_urls"),
+                "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "out_path": "animation.mp4",
+                "camera": "static",
+                "fps": 30,
+                "width": 1280,
+                "height": 720,
+                "device_scale_factor": 1,
+                "gl": "auto",
+                "workers": 1,
+                "capture_format": "jpeg",
+                "jpeg_quality": 92,
+                "settle_ms": 30,
+                "settle_timeout_ms": 8000,
+                "head_ready_timeout_ms": 30000,
+                "crf": 18,
+                "x264_preset": "veryfast",
+                "subject_index": 0,
+                "zoom": None,
+                "pitch": None,
+                "bearing": None,
+                "follow_smoothing": 0.25,
+                "zoom_boost": 0.0,
+                "heading_lock": False,
+                "orbits": 1.0,
+                "fit_padding": 80,
+                "lead_frac": 0.0,
+                "bearing_mode": "rotate",
+                "rotate_deg": 45.0,
+                "intro_frac": 0.12,
+                "intro_zoom_out": 2.5,
+                "start_frac": 0.0,
+                "end_frac": 1.0,
+                "verbose": True,
+            }
+            | (params_dict.get("create_animation") or {}),
             method="call",
         ),
         "animated_map_widget": Node(

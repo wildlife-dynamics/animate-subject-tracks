@@ -115,28 +115,79 @@
       "type": "object",
       "title": "Convert relocations to trajectories"
     },
+    "terrain_exaggeration": {
+      "additionalProperties": false,
+      "properties": {
+        "exaggeration": {
+          "default": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Exaggeration",
+          "type": "number",
+          "description": "Vertical exaggeration factor. 1.0 = true scale, 2.0 = 2x heights."
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Terrain exaggeration factor"
+    },
     "draw_animation": {
       "additionalProperties": false,
       "properties": {
-        "animation": {
+        "head_layer": {
           "allOf": [
             {
-              "$ref": "#/$defs/TimelineAnimation"
+              "$ref": "#/$defs/ScenegraphLayerDefinition"
             }
           ],
           "default": {
-            "fade_ratio": 0.05,
-            "animation_speed": 10000.0,
-            "fps_limit": 20.0
+            "enabled": false,
+            "glb": "https://raw.githubusercontent.com/wildlife-dynamics/animate_subject_tracks/main/african_bush_elephant.glb",
+            "size_scale": 50.0,
+            "size_min_pixels": 12.0,
+            "size_max_pixels": 75.0,
+            "face_heading": true,
+            "yaw_offset": 0.0,
+            "model_pitch": 0.0,
+            "model_roll": 0.0,
+            "smooth_samples": 2,
+            "terrain_pitch": false,
+            "terrain_pitch_scale": 1.0,
+            "min_move_m": 3.0,
+            "pbr_lighting": true,
+            "tint": [
+              220,
+              220,
+              255
+            ],
+            "use_track_color": true
           },
-          "title": "Animation",
-          "description": "Timeline settings.",
-          "ecoscope:advanced": true
+          "title": "Head Layer",
+          "description": "3D glTF/GLB head model settings. Enable with the 'enabled' checkbox."
         }
       },
       "type": "object",
       "required": [],
       "title": "Draw animated map"
+    },
+    "create_animation": {
+      "additionalProperties": false,
+      "properties": {
+        "duration": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/DurationConfig"
+            }
+          ],
+          "default": {
+            "auto": true,
+            "seconds": 75.0
+          },
+          "title": "Duration"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Create animation"
     }
   },
   "$defs": {
@@ -229,33 +280,146 @@
       "title": "TrajectorySegmentFilter",
       "type": "object"
     },
-    "TimelineAnimation": {
-      "description": "Settings for an animated TripsLayer timeline.\n\nEither construct directly, or derive from data with\ntimeline_animation_from_gdf(). All time fields are in the same\nunits as the layer's timestamps (typically seconds).",
+    "ScenegraphLayerDefinition": {
+      "description": "An animated 3D head built from a glTF/GLB model (deck.gl ScenegraphLayer).\n\nCreate one with create_scenegraph_layer() and pass it to\ndraw_animated_map(head_layer=...). Its position and heading are driven per-frame\nfrom the TripsLayer, so it follows each subject's current location. `glb` accepts\nan http(s) URL, a `data:` URI, or a local file path (read and embedded as a data\nURI). None -> bundled default (the elephant model). If the ScenegraphLayer\nconstructor or the glTF loader can't be resolved at runtime, the head silently\nfalls back to the flat ScatterplotLayer dot.\nSee https://deck.gl/docs/api-reference/mesh-layers/scenegraph-layer for more info.",
       "properties": {
-        "fade_ratio": {
-          "default": 0.05,
-          "description": "Comet-tail length as a fraction of the total time span (0\u20131].",
-          "exclusiveMinimum": 0.0,
-          "maximum": 1.0,
-          "title": "Fade Ratio",
+        "enabled": {
+          "default": false,
+          "description": "Enable the 3D head model. When off, subjects render as flat dots.",
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "glb": {
+          "default": "https://raw.githubusercontent.com/wildlife-dynamics/animate_subject_tracks/main/african_bush_elephant.glb",
+          "description": "GLB source: an http(s) URL, a data: URI, or a local file path. None -> bundled default model (elephant).",
+          "title": "Glb",
+          "type": "string"
+        },
+        "size_scale": {
+          "default": 50.0,
+          "description": "ScenegraphLayer sizeScale. Tune to your scene.",
+          "ecoscope:advanced": true,
+          "title": "Size Scale",
           "type": "number"
         },
-        "animation_speed": {
-          "default": 10000.0,
-          "description": "Amount currentTime advances per tick (per-frame increment).",
-          "exclusiveMinimum": 0.0,
-          "title": "Animation Speed",
+        "size_min_pixels": {
+          "default": 12.0,
+          "description": "Clamp the on-screen model to at least this many pixels so it stays visible when zoomed out.",
+          "ecoscope:advanced": true,
+          "title": "Size Min Pixels",
           "type": "number"
         },
-        "fps_limit": {
-          "default": 20.0,
-          "description": "Maximum animation frames per second.",
-          "exclusiveMinimum": 0.0,
-          "title": "Fps Limit",
+        "size_max_pixels": {
+          "default": 75.0,
+          "description": "Optional upper clamp on the model's on-screen size in pixels.",
+          "ecoscope:advanced": true,
+          "title": "Size Max Pixels",
+          "type": "number"
+        },
+        "face_heading": {
+          "default": true,
+          "description": "Rotate the model to face its direction of travel.",
+          "ecoscope:advanced": true,
+          "title": "Face Heading",
+          "type": "boolean"
+        },
+        "yaw_offset": {
+          "default": 0.0,
+          "description": "Degrees added to the computed heading so the model's nose aligns with travel. Model-dependent; tweak if your model faces sideways.",
+          "ecoscope:advanced": true,
+          "title": "Yaw Offset",
+          "type": "number"
+        },
+        "model_pitch": {
+          "default": 0.0,
+          "description": "Tilt of the MODEL itself (deg), independent of the camera. Use to correct a model authored nose-up/down; NOT the view pitch.",
+          "ecoscope:advanced": true,
+          "title": "Model Pitch",
+          "type": "number"
+        },
+        "model_roll": {
+          "default": 0.0,
+          "description": "Bank of the MODEL itself (deg), independent of the camera.",
+          "ecoscope:advanced": true,
+          "title": "Model Roll",
+          "type": "number"
+        },
+        "smooth_samples": {
+          "default": 2,
+          "description": "Heading/slope smoothing window in track fixes (+/- N). Higher = smoother orientation but more lag; 0 = raw single segment.",
+          "ecoscope:advanced": true,
+          "title": "Smooth Samples",
+          "type": "integer"
+        },
+        "terrain_pitch": {
+          "default": false,
+          "description": "Tilt the model to the terrain slope (from each fix's z) so it noses up on climbs / down on descents. OFF by default -> stays upright; enable only for steady, climbing tracks (it can tip near-stationary subjects).",
+          "ecoscope:advanced": true,
+          "title": "Terrain Pitch",
+          "type": "boolean"
+        },
+        "terrain_pitch_scale": {
+          "default": 1.0,
+          "description": "Sign/strength of terrain pitch. Set -1.0 to flip if the model tilts the wrong way; <1 to soften. (Tilt is also capped at +/-20deg.)",
+          "ecoscope:advanced": true,
+          "title": "Terrain Pitch Scale",
+          "type": "number"
+        },
+        "min_move_m": {
+          "default": 3.0,
+          "description": "If the subject moves less than this (m) across the smoothing window, hold the last heading and keep the model level -- stops it spinning or tipping while milling in place.",
+          "ecoscope:advanced": true,
+          "title": "Min Move M",
+          "type": "number"
+        },
+        "pbr_lighting": {
+          "default": true,
+          "description": "Physically-based lighting ('pbr'); False -> flat shading.",
+          "ecoscope:advanced": true,
+          "title": "Pbr Lighting",
+          "type": "boolean"
+        },
+        "tint": {
+          "default": [
+            220,
+            220,
+            255
+          ],
+          "description": "Optional RGB tint over the model as [R, G, B]. None -> the model's own materials.",
+          "ecoscope:advanced": true,
+          "items": {
+            "type": "integer"
+          },
+          "title": "Tint",
+          "type": "array"
+        },
+        "use_track_color": {
+          "default": true,
+          "description": "Colour the model with each subject's track colour. False -> use `tint` (or the model's own materials). Note: the colour multiplies the model's material, so it reads truest with a light/neutral glb and flat lighting (pbr_lighting=False).",
+          "ecoscope:advanced": true,
+          "title": "Use Track Color",
+          "type": "boolean"
+        }
+      },
+      "title": "ScenegraphLayerDefinition",
+      "type": "object"
+    },
+    "DurationConfig": {
+      "properties": {
+        "auto": {
+          "default": true,
+          "description": "Match the animation's own playback length. Uncheck to set a fixed duration.",
+          "title": "Auto",
+          "type": "boolean"
+        },
+        "seconds": {
+          "default": 75.0,
+          "description": "Video duration in seconds. Used when auto is off, or as a fallback when auto cannot determine the length.",
+          "title": "Seconds",
           "type": "number"
         }
       },
-      "title": "TimelineAnimation",
+      "title": "DurationConfig",
       "type": "object"
     }
   },
@@ -280,7 +444,9 @@
       "time_range",
       "subject_group_var",
       "convert_to_trajs",
-      "draw_animation"
+      "terrain_exaggeration",
+      "draw_animation",
+      "create_animation"
     ]
   },
   "additionalProperties": false

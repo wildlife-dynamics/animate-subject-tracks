@@ -29,18 +29,13 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-mep
-    version: "0.0.21.*"
+    version: "0.0.22.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
 rjsf-overrides:
   properties:
     Subject Group.properties.subject_group_var.properties.var.title: Subject Group Name
     Subject Group.properties.subject_group_var.properties.var.default: Elephants
-    draw_animation.properties.animation.default:
-      fade_ratio: 0.955
-      animation_speed: 10000.0
-      fps_limit: 30
-    
 task-instance-defaults:
   skipif:
     conditions:
@@ -156,6 +151,15 @@ workflow:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       filename: trajectories
 
+  - name: Terrain exaggeration factor 
+    id: terrain_exaggeration 
+    task: create_elevation_decoder 
+    partial:
+      r_scaler: 256
+      g_scaler: 1.0
+      b_scaler: 0.00390625 #1/256 
+      offset: -32768.0
+
   - name: Convert trajectories to pydeck trip objects 
     id: trajs_trips 
     task: trajectory_to_trips
@@ -164,36 +168,31 @@ workflow:
       subject_name_col: subject_name 
       subject_hex_col: hex_color
       terrain: 
+        zoom: 15 
         offset: 30 
-        zoom: 12 
-        vertical_scale: 2.5 
-        ground_elevation: 1500
         cache_dir: null 
-      
+        ground_elevation: 1500
+        elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
+        elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+
   - name: Create terrain layer 
     id: terrain_layer 
     task: create_terrain_layer 
     partial: 
+      min_zoom: 0 
+      max_zoom: 15
       elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
       texture: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-      elevation_scale: 2.5 
       wireframe: false 
-      min_zoom: 0 
-      max_zoom: 14 
-      extruded: false
-      elevation_decoder:
-        rScaler: 256
-        gScaler: 1
-        bScaler: 0.00390625
-        offset: -32768
+      elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
 
   - name: Get trips view state 
     id: trips_view_state 
     task: view_state_deck_gdf 
     partial: 
       gdf: ${{ workflow.trajs_trips.return }}
-      pitch: 50
-      bearing: 30 
+      pitch: 0
+      bearing: 0 
   
   - name: Normalize trips timestamps 
     id: normalize_trips 
@@ -211,18 +210,17 @@ workflow:
       layer_style: 
         get_timestamps: timestamps 
         get_color: color 
-        get_width: 2.2
+        get_width: 2.25
         width_units: pixels 
         width_scale: 1
-        width_min_pixels: 2
-        width_max_pixels : 8
-        cap_rounded: false 
+        width_min_pixels: 1
+        width_max_pixels : 5
+        cap_rounded: true
         joint_rounded: true 
         billboard: false 
         fade_trail: true 
-
-      trail_frac: null 
-      current_frac: null 
+        current_time: 0 
+        trail_length: 120
       legend: 
         title: Subjects 
         label_column: name 
@@ -239,12 +237,28 @@ workflow:
       tile_layers: 
         - ${{ workflow.terrain_layer.return }}
       static: false
-      legend_style:
-        placement: "bottom-right"
       max_zoom: 15 
       title: null 
+      legend_style:
+        placement: "bottom-right"
       view_state: ${{ workflow.trips_view_state.return }}
-        
+      entry_pitch: 0 
+      entry_bearing: 0 
+      animation: 
+        fade_ratio: 1.00 
+        fps_limit: 30 
+        show_history: true 
+        history_color: [255, 255, 255]
+        history_opacity: 1.00 
+        fade_history: true 
+        show_head: true 
+        head_radius: 1.75
+        head_color: null 
+        head_outline_width: 1.05 
+      # head_layer:
+      #   enabled: false
+      #   glb: "https://raw.githubusercontent.com/wildlife-dynamics/animate_subject_tracks/main/african_bush_elephant.glb"
+      
   - name: Persist map
     id: map_urls
     task: persist_text
@@ -253,6 +267,48 @@ workflow:
       text: ${{ workflow.draw_animation.return }}
       filename: animated_map.html
 
+  - name: Create animation
+    id: create_animation
+    task: render_animation
+    partial:
+      html_path: ${{ workflow.map_urls.return }}
+      output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      out_path: "animation.mp4"
+      camera: static 
+      fps: 30 
+      # duration:
+      #   auto: true
+      #   seconds: 75.0
+      width: 1280 
+      height: 720 
+      device_scale_factor: 1
+      gl: auto 
+      workers: 1
+      capture_format: jpeg 
+      jpeg_quality: 92 
+      settle_ms: 30 
+      settle_timeout_ms: 8000 
+      head_ready_timeout_ms: 30000
+      crf: 18 
+      x264_preset: veryfast 
+      subject_index: 0 
+      zoom: null 
+      pitch: null 
+      bearing: null 
+      follow_smoothing: 0.25 
+      zoom_boost: 0.0 
+      heading_lock: false 
+      orbits: 1.0 
+      fit_padding: 80
+      lead_frac: 0.0 
+      bearing_mode: rotate
+      rotate_deg: 45.0 
+      intro_frac: 0.12
+      intro_zoom_out: 2.5 
+      start_frac: 0.0 
+      end_frac: 1.0 
+      verbose: true 
+      
     # Map widgets
   - name: Create animated Widget
     id: animated_map_widget

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveFloat, confloat
 
@@ -22,6 +22,17 @@ class SubjectGroupVar(BaseModel):
         extra="forbid",
     )
     var: str = Field(..., title="")
+
+
+class TerrainExaggeration(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    exaggeration: Optional[PositiveFloat] = Field(
+        1.0,
+        description="Vertical exaggeration factor. 1.0 = true scale, 2.0 = 2x heights.",
+        title="Exaggeration",
+    )
 
 
 class EarthRangerConnection(BaseModel):
@@ -56,19 +67,99 @@ class TrajectorySegmentFilter(BaseModel):
     )
 
 
-class TimelineAnimation(BaseModel):
-    fade_ratio: Optional[confloat(le=1.0, gt=0.0)] = Field(
-        0.05,
-        description="Comet-tail length as a fraction of the total time span (0–1].",
-        title="Fade Ratio",
+class ScenegraphLayerDefinition(BaseModel):
+    enabled: Optional[bool] = Field(
+        False,
+        description="Enable the 3D head model. When off, subjects render as flat dots.",
+        title="Enabled",
     )
-    animation_speed: Optional[PositiveFloat] = Field(
-        10000.0,
-        description="Amount currentTime advances per tick (per-frame increment).",
-        title="Animation Speed",
+    glb: Optional[str] = Field(
+        "https://raw.githubusercontent.com/wildlife-dynamics/animate_subject_tracks/main/african_bush_elephant.glb",
+        description="GLB source: an http(s) URL, a data: URI, or a local file path. None -> bundled default model (elephant).",
+        title="Glb",
     )
-    fps_limit: Optional[PositiveFloat] = Field(
-        20.0, description="Maximum animation frames per second.", title="Fps Limit"
+    size_scale: Optional[float] = Field(
+        50.0,
+        description="ScenegraphLayer sizeScale. Tune to your scene.",
+        title="Size Scale",
+    )
+    size_min_pixels: Optional[float] = Field(
+        12.0,
+        description="Clamp the on-screen model to at least this many pixels so it stays visible when zoomed out.",
+        title="Size Min Pixels",
+    )
+    size_max_pixels: Optional[float] = Field(
+        75.0,
+        description="Optional upper clamp on the model's on-screen size in pixels.",
+        title="Size Max Pixels",
+    )
+    face_heading: Optional[bool] = Field(
+        True,
+        description="Rotate the model to face its direction of travel.",
+        title="Face Heading",
+    )
+    yaw_offset: Optional[float] = Field(
+        0.0,
+        description="Degrees added to the computed heading so the model's nose aligns with travel. Model-dependent; tweak if your model faces sideways.",
+        title="Yaw Offset",
+    )
+    model_pitch: Optional[float] = Field(
+        0.0,
+        description="Tilt of the MODEL itself (deg), independent of the camera. Use to correct a model authored nose-up/down; NOT the view pitch.",
+        title="Model Pitch",
+    )
+    model_roll: Optional[float] = Field(
+        0.0,
+        description="Bank of the MODEL itself (deg), independent of the camera.",
+        title="Model Roll",
+    )
+    smooth_samples: Optional[int] = Field(
+        2,
+        description="Heading/slope smoothing window in track fixes (+/- N). Higher = smoother orientation but more lag; 0 = raw single segment.",
+        title="Smooth Samples",
+    )
+    terrain_pitch: Optional[bool] = Field(
+        False,
+        description="Tilt the model to the terrain slope (from each fix's z) so it noses up on climbs / down on descents. OFF by default -> stays upright; enable only for steady, climbing tracks (it can tip near-stationary subjects).",
+        title="Terrain Pitch",
+    )
+    terrain_pitch_scale: Optional[float] = Field(
+        1.0,
+        description="Sign/strength of terrain pitch. Set -1.0 to flip if the model tilts the wrong way; <1 to soften. (Tilt is also capped at +/-20deg.)",
+        title="Terrain Pitch Scale",
+    )
+    min_move_m: Optional[float] = Field(
+        3.0,
+        description="If the subject moves less than this (m) across the smoothing window, hold the last heading and keep the model level -- stops it spinning or tipping while milling in place.",
+        title="Min Move M",
+    )
+    pbr_lighting: Optional[bool] = Field(
+        True,
+        description="Physically-based lighting ('pbr'); False -> flat shading.",
+        title="Pbr Lighting",
+    )
+    tint: Optional[List[int]] = Field(
+        [220, 220, 255],
+        description="Optional RGB tint over the model as [R, G, B]. None -> the model's own materials.",
+        title="Tint",
+    )
+    use_track_color: Optional[bool] = Field(
+        True,
+        description="Colour the model with each subject's track colour. False -> use `tint` (or the model's own materials). Note: the colour multiplies the model's material, so it reads truest with a light/neutral glb and flat lighting (pbr_lighting=False).",
+        title="Use Track Color",
+    )
+
+
+class DurationConfig(BaseModel):
+    auto: Optional[bool] = Field(
+        True,
+        description="Match the animation's own playback length. Uncheck to set a fixed duration.",
+        title="Auto",
+    )
+    seconds: Optional[float] = Field(
+        75.0,
+        description="Video duration in seconds. Used when auto is off, or as a fallback when auto cannot determine the length.",
+        title="Seconds",
     )
 
 
@@ -117,12 +208,41 @@ class DrawAnimation(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    animation: Optional[TimelineAnimation] = Field(
-        default_factory=lambda: TimelineAnimation.model_validate(
-            {"fade_ratio": 0.05, "animation_speed": 10000.0, "fps_limit": 20.0}
+    head_layer: Optional[ScenegraphLayerDefinition] = Field(
+        default_factory=lambda: ScenegraphLayerDefinition.model_validate(
+            {
+                "enabled": False,
+                "glb": "https://raw.githubusercontent.com/wildlife-dynamics/animate_subject_tracks/main/african_bush_elephant.glb",
+                "size_scale": 50.0,
+                "size_min_pixels": 12.0,
+                "size_max_pixels": 75.0,
+                "face_heading": True,
+                "yaw_offset": 0.0,
+                "model_pitch": 0.0,
+                "model_roll": 0.0,
+                "smooth_samples": 2,
+                "terrain_pitch": False,
+                "terrain_pitch_scale": 1.0,
+                "min_move_m": 3.0,
+                "pbr_lighting": True,
+                "tint": [220, 220, 255],
+                "use_track_color": True,
+            }
         ),
-        description="Timeline settings.",
-        title="Animation",
+        description="3D glTF/GLB head model settings. Enable with the 'enabled' checkbox.",
+        title="Head Layer",
+    )
+
+
+class CreateAnimation(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    duration: Optional[DurationConfig] = Field(
+        default_factory=lambda: DurationConfig.model_validate(
+            {"auto": True, "seconds": 75.0}
+        ),
+        title="Duration",
     )
 
 
@@ -147,4 +267,8 @@ class Params(BaseModel):
     convert_to_trajs: Optional[ConvertToTrajs] = Field(
         None, title="Convert relocations to trajectories"
     )
+    terrain_exaggeration: Optional[TerrainExaggeration] = Field(
+        None, title="Terrain exaggeration factor"
+    )
     draw_animation: Optional[DrawAnimation] = Field(None, title="Draw animated map")
+    create_animation: Optional[CreateAnimation] = Field(None, title="Create animation")
