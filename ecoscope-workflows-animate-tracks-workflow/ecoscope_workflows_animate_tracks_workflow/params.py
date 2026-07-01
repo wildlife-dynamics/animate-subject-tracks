@@ -6,7 +6,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, PositiveFloat, confloat
+from pydantic import BaseModel, ConfigDict, Field, PositiveFloat, confloat, conint
 
 
 class WorkflowDetails(BaseModel):
@@ -33,6 +33,36 @@ class TerrainExaggeration(BaseModel):
         description="Vertical exaggeration factor. 1.0 = true scale, 2.0 = 2x heights.",
         title="Exaggeration",
     )
+
+
+class TripsViewState(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pitch: Optional[conint(ge=0, le=90)] = Field(
+        45,
+        description="Camera tilt in degrees (0 = top-down, 90 = horizon). 45° gives a natural 3-D perspective over terrain.",
+        title="Pitch",
+    )
+    bearing: Optional[conint(ge=-180, le=180)] = Field(
+        0,
+        description="Camera compass heading in degrees (0 = north, 90 = east, -90 = west). Rotates the map so a different cardinal direction faces up.",
+        title="Bearing",
+    )
+
+
+class AnimationSettings(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    animation_speed: Optional[confloat(ge=0.0)] = Field(1000, title="Animation Speed")
+
+
+class VideoOutputPath(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    enabled: Optional[bool] = Field(False, title="Enabled")
 
 
 class EarthRangerConnection(BaseModel):
@@ -104,7 +134,7 @@ class ScenegraphLayerDefinition(BaseModel):
         title="Yaw Offset",
     )
     model_pitch: Optional[float] = Field(
-        0.0,
+        90.0,
         description="Tilt of the MODEL itself (deg), independent of the camera. Use to correct a model authored nose-up/down; NOT the view pitch.",
         title="Model Pitch",
     )
@@ -147,19 +177,6 @@ class ScenegraphLayerDefinition(BaseModel):
         True,
         description="Colour the model with each subject's track colour. False -> use `tint` (or the model's own materials). Note: the colour multiplies the model's material, so it reads truest with a light/neutral glb and flat lighting (pbr_lighting=False).",
         title="Use Track Color",
-    )
-
-
-class DurationConfig(BaseModel):
-    auto: Optional[bool] = Field(
-        True,
-        description="Match the animation's own playback length. Uncheck to set a fixed duration.",
-        title="Auto",
-    )
-    seconds: Optional[float] = Field(
-        75.0,
-        description="Video duration in seconds. Used when auto is off, or as a fallback when auto cannot determine the length.",
-        title="Seconds",
     )
 
 
@@ -218,7 +235,7 @@ class DrawAnimation(BaseModel):
                 "size_max_pixels": 75.0,
                 "face_heading": True,
                 "yaw_offset": 0.0,
-                "model_pitch": 0.0,
+                "model_pitch": 90.0,
                 "model_roll": 0.0,
                 "smooth_samples": 2,
                 "terrain_pitch": False,
@@ -234,18 +251,6 @@ class DrawAnimation(BaseModel):
     )
 
 
-class CreateAnimation(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    duration: Optional[DurationConfig] = Field(
-        default_factory=lambda: DurationConfig.model_validate(
-            {"auto": True, "seconds": 75.0}
-        ),
-        title="Duration",
-    )
-
-
 class Params(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -255,20 +260,28 @@ class Params(BaseModel):
         description="Add information that will help to differentiate this workflow from another.",
         title="Set workflow details",
     )
-    er_client_name: Optional[ErClientName] = Field(
-        None, title="Connect to earth ranger"
-    )
+    er_client_name: Optional[ErClientName] = Field(None, title="Connect to EarthRanger")
     time_range: Optional[TimeRange] = Field(
         None,
         description="Choose the period of time to analyze.",
         title="Define analysis time range",
     )
-    subject_group_var: Optional[SubjectGroupVar] = Field(None, title="")
+    subject_group_var: Optional[SubjectGroupVar] = Field(
+        None, title="Set subject group name"
+    )
     convert_to_trajs: Optional[ConvertToTrajs] = Field(
         None, title="Convert relocations to trajectories"
     )
     terrain_exaggeration: Optional[TerrainExaggeration] = Field(
-        None, title="Terrain exaggeration factor"
+        None, title="Configure terrain elevation decoder"
+    )
+    trips_view_state: Optional[TripsViewState] = Field(
+        None, title="Calculate map view bounds"
+    )
+    animation_settings: Optional[AnimationSettings] = Field(
+        None, title="Configure animation settings"
     )
     draw_animation: Optional[DrawAnimation] = Field(None, title="Draw animated map")
-    create_animation: Optional[CreateAnimation] = Field(None, title="Create animation")
+    video_output_path: Optional[VideoOutputPath] = Field(
+        None, title="Configure video export"
+    )

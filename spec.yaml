@@ -29,13 +29,14 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-mep
-    version: "0.0.23.*"
+    version: "0.0.24.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
 rjsf-overrides:
   properties:
     Subject Group.properties.subject_group_var.properties.var.title: Subject Group Name
     Subject Group.properties.subject_group_var.properties.var.default: Elephants
+    trips_view_state.properties.pitch.default: 45
 task-instance-defaults:
   skipif:
     conditions:
@@ -48,7 +49,7 @@ workflow:
     id: workflow_details
     task: set_workflow_details
 
-  - name: Connect to earth ranger
+  - name: Connect to EarthRanger
     id: er_client_name
     task: set_er_connection 
 
@@ -69,7 +70,7 @@ workflow:
     type: task-group
     description: Choose subject group to generate collar voltage charts and overall speedmap
     tasks:
-      - name: null
+      - name: Set subject group name
         id: subject_group_var
         task: set_string_var
 
@@ -118,7 +119,7 @@ workflow:
     partial: 
       relocations: ${{ workflow.subject_reloc.return }}
 
-  - name: Rename trajectory columns
+  - name: Standardize trajectory column names
     id: rename_traj_cols
     task: map_columns 
     partial:
@@ -133,7 +134,7 @@ workflow:
         extra__subject_subtype: subject_subtype
         extra__created_at: created_at
 
-  - name: Persist relocations as geoparquet 
+  - name: Save relocations to GeoParquet
     id: persist_relocs_geoparquet
     task: persist_df 
     partial: 
@@ -142,7 +143,7 @@ workflow:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       filename: relocations
 
-  - name: Persist trajectories as geoparquet 
+  - name: Save trajectories to GeoParquet
     id: persist_trajs_geoparquet
     task: persist_df 
     partial: 
@@ -151,7 +152,7 @@ workflow:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       filename: trajectories
 
-  - name: Terrain exaggeration factor 
+  - name: Configure terrain elevation decoder
     id: terrain_exaggeration 
     task: create_elevation_decoder 
     partial:
@@ -160,7 +161,7 @@ workflow:
       b_scaler: 0.00390625 #1/256 
       offset: -32768.0
 
-  - name: Convert trajectories to pydeck trip objects 
+  - name: Prepare trajectory animation data
     id: trajs_trips 
     task: trajectory_to_trips
     partial:
@@ -186,15 +187,13 @@ workflow:
       wireframe: false 
       elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
 
-  - name: Get trips view state 
-    id: trips_view_state 
-    task: view_state_deck_gdf 
-    partial: 
+  - name: Calculate map view bounds
+    id: trips_view_state
+    task: compute_view_state_from_gdf
+    partial:
       gdf: ${{ workflow.trajs_trips.return }}
-      pitch: 0
-      bearing: 0 
   
-  - name: Normalize trips timestamps 
+  - name: Normalize animation timestamps
     id: normalize_trips 
     task: normalize_timestamps 
     partial: 
@@ -228,38 +227,43 @@ workflow:
         sort: ascending 
         label_suffix: null 
   
-  - name: Draw animated map 
+  - name: Configure animation settings
+    id: animation_settings
+    task: create_timeline_animation
+    partial:
+      fade_ratio: 1.00
+      fps_limit: 30
+      show_history: true
+      history_color: [255, 255, 255]
+      head_outline_color:  [255, 255, 255]
+      history_opacity: 1.00
+      fade_history: true
+      show_head: true
+      head_radius: 12.25
+      head_color: null
+      head_outline_width: 1.05
+      auto_rotate_speed: 0.0
+
+  - name: Draw animated map
     id: draw_animation
-    task: draw_animated_map 
-    partial: 
-      geo_layers: 
+    task: draw_animated_map
+    partial:
+      geo_layers:
         - ${{ workflow.trips_layer.return }}
-      tile_layers: 
+      tile_layers:
         - ${{ workflow.terrain_layer.return }}
       static: false
-      max_zoom: 15 
-      title: null 
+      max_zoom: 15
+      title: null
       legend_style:
         placement: "bottom-right"
       view_state: ${{ workflow.trips_view_state.return }}
-      entry_pitch: 0 
-      entry_bearing: 0 
-      animation: 
-        fade_ratio: 1.00 
-        fps_limit: 30 
-        show_history: true 
-        history_color: [255, 255, 255]
-        history_opacity: 1.00 
-        fade_history: true 
-        show_head: true 
-        head_radius: 1.75
-        head_color: null 
-        head_outline_width: 1.05 
+      animation: ${{ workflow.animation_settings.return }}
       # head_layer:
       #   enabled: false
       #   glb: "https://raw.githubusercontent.com/wildlife-dynamics/animate_subject_tracks/main/african_bush_elephant.glb"
       
-  - name: Persist map
+  - name: Save animated map as HTML
     id: map_urls
     task: persist_text
     partial:
@@ -267,50 +271,65 @@ workflow:
       text: ${{ workflow.draw_animation.return }}
       filename: animated_map.html
 
-  - name: Create animation
-    id: create_animation
-    task: render_animation
-    partial:
-      html_path: ${{ workflow.map_urls.return }}
-      output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      out_path: "animation.mp4"
-      camera: static 
-      fps: 30 
-      # duration:
-      #   auto: true
-      #   seconds: 75.0
-      width: 1280 
-      height: 720 
-      device_scale_factor: 1
-      gl: auto 
-      workers: 1
-      capture_format: jpeg 
-      jpeg_quality: 92 
-      settle_ms: 30 
-      settle_timeout_ms: 8000 
-      head_ready_timeout_ms: 30000
-      crf: 18 
-      x264_preset: veryfast 
-      subject_index: 0 
-      zoom: null 
-      pitch: null 
-      bearing: null 
-      follow_smoothing: 0.25 
-      zoom_boost: 0.0 
-      heading_lock: false 
-      orbits: 1.0 
-      fit_padding: 80
-      lead_frac: 0.0 
-      bearing_mode: rotate
-      rotate_deg: 45.0 
-      intro_frac: 0.12
-      intro_zoom_out: 2.5 
-      start_frac: 0.0 
-      end_frac: 1.0 
-      verbose: true 
+  - title: Video Creation
+    type: task-group
+    description: >-
+      Optionally render the animated map as a video file.
+      Enable the toggle to turn on video creation.
+    tasks:
+      - name: Configure video export
+        id: video_output_path
+        task: configure_video_export
+        partial: 
+          filename: ${{ workflow.map_urls.return }}
+
+      - name: Render animation video
+        id: create_animation
+        task: render_animation
+        skipif:
+          conditions:
+            - any_dependency_skipped
+        partial:
+          html_path: ${{ workflow.video_output_path.return }}
+          output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+          out_path: "animation.mp4"
+          camera: static 
+          fps: 30 
+          duration:
+            auto: true
+            seconds: 75.0
+          width: 1280 
+          height: 720 
+          device_scale_factor: 1
+          gl: auto 
+          workers: 1
+          capture_format: jpeg 
+          jpeg_quality: 92 
+          settle_ms: 30 
+          settle_timeout_ms: 8000 
+          head_ready_timeout_ms: 30000
+          crf: 18 
+          x264_preset: veryfast 
+          subject_index: 0 
+          zoom: null 
+          pitch: null 
+          bearing: null 
+          follow_smoothing: 0.25 
+          zoom_boost: 0.0 
+          heading_lock: false 
+          orbits: 1.0 
+          fit_padding: 80
+          lead_frac: 0.0 
+          bearing_mode: rotate
+          rotate_deg: 45.0 
+          intro_frac: 0.12
+          intro_zoom_out: 2.5 
+          start_frac: 0.0 
+          end_frac: 1.0 
+          verbose: true 
       
     # Map widgets
-  - name: Create animated Widget
+  - name: Create animated map widget
     id: animated_map_widget
     task: create_map_widget_single_view
     partial:

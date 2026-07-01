@@ -33,7 +33,7 @@
         "data_source"
       ],
       "type": "object",
-      "title": "Connect to earth ranger"
+      "title": "Connect to EarthRanger"
     },
     "time_range": {
       "additionalProperties": false,
@@ -87,7 +87,7 @@
         "var"
       ],
       "type": "object",
-      "title": ""
+      "title": "Set subject group name"
     },
     "convert_to_trajs": {
       "additionalProperties": false,
@@ -123,12 +123,54 @@
           "exclusiveMinimum": 0.0,
           "title": "Exaggeration",
           "type": "number",
-          "description": "Vertical exaggeration factor. 1.0 = true scale, 2.0 = 2x heights."
+          "description": "Vertical exaggeration factor. 1.0 = true scale, 2.0 = 2x heights.",
+          "ecoscope:advanced": true
         }
       },
       "type": "object",
       "required": [],
-      "title": "Terrain exaggeration factor"
+      "title": "Configure terrain elevation decoder"
+    },
+    "trips_view_state": {
+      "additionalProperties": false,
+      "properties": {
+        "pitch": {
+          "default": 45,
+          "maximum": 90,
+          "minimum": 0,
+          "title": "Pitch",
+          "type": "integer",
+          "description": "Camera tilt in degrees (0 = top-down, 90 = horizon). 45\u00b0 gives a natural 3-D perspective over terrain.",
+          "ecoscope:advanced": true
+        },
+        "bearing": {
+          "default": 0,
+          "maximum": 180,
+          "minimum": -180,
+          "title": "Bearing",
+          "type": "integer",
+          "description": "Camera compass heading in degrees (0 = north, 90 = east, -90 = west). Rotates the map so a different cardinal direction faces up.",
+          "ecoscope:advanced": true
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Calculate map view bounds"
+    },
+    "animation_settings": {
+      "additionalProperties": false,
+      "properties": {
+        "animation_speed": {
+          "default": 1000,
+          "minimum": 0.0,
+          "title": "Animation Speed",
+          "type": "number",
+          "ecoscope:advanced": true
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Configure animation settings"
     },
     "draw_animation": {
       "additionalProperties": false,
@@ -147,7 +189,7 @@
             "size_max_pixels": 75.0,
             "face_heading": true,
             "yaw_offset": 0.0,
-            "model_pitch": 0.0,
+            "model_pitch": 90.0,
             "model_roll": 0.0,
             "smooth_samples": 2,
             "terrain_pitch": false,
@@ -162,32 +204,26 @@
             "use_track_color": true
           },
           "title": "Head Layer",
-          "description": "3D glTF/GLB head model settings. Enable with the 'enabled' checkbox."
+          "description": "3D glTF/GLB head model settings. Enable with the 'enabled' checkbox.",
+          "ecoscope:advanced": true
         }
       },
       "type": "object",
       "required": [],
       "title": "Draw animated map"
     },
-    "create_animation": {
+    "video_output_path": {
       "additionalProperties": false,
       "properties": {
-        "duration": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/DurationConfig"
-            }
-          ],
-          "default": {
-            "auto": true,
-            "seconds": 75.0
-          },
-          "title": "Duration"
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
         }
       },
-      "required": [],
       "type": "object",
-      "title": "Create animation"
+      "required": [],
+      "title": "Configure video export"
     }
   },
   "$defs": {
@@ -286,12 +322,14 @@
         "enabled": {
           "default": false,
           "description": "Enable the 3D head model. When off, subjects render as flat dots.",
+          "ecoscope:advanced": true,
           "title": "Enabled",
           "type": "boolean"
         },
         "glb": {
           "default": "https://raw.githubusercontent.com/wildlife-dynamics/animate_subject_tracks/main/african_bush_elephant.glb",
           "description": "GLB source: an http(s) URL, a data: URI, or a local file path. None -> bundled default model (elephant).",
+          "ecoscope:advanced": true,
           "title": "Glb",
           "type": "string"
         },
@@ -331,7 +369,7 @@
           "type": "number"
         },
         "model_pitch": {
-          "default": 0.0,
+          "default": 90.0,
           "description": "Tilt of the MODEL itself (deg), independent of the camera. Use to correct a model authored nose-up/down; NOT the view pitch.",
           "ecoscope:advanced": true,
           "title": "Model Pitch",
@@ -403,24 +441,6 @@
       },
       "title": "ScenegraphLayerDefinition",
       "type": "object"
-    },
-    "DurationConfig": {
-      "properties": {
-        "auto": {
-          "default": true,
-          "description": "Match the animation's own playback length. Uncheck to set a fixed duration.",
-          "title": "Auto",
-          "type": "boolean"
-        },
-        "seconds": {
-          "default": 75.0,
-          "description": "Video duration in seconds. Used when auto is off, or as a fallback when auto cannot determine the length.",
-          "title": "Seconds",
-          "type": "number"
-        }
-      },
-      "title": "DurationConfig",
-      "type": "object"
     }
   },
   "uiSchema": {
@@ -438,6 +458,12 @@
         "time_format"
       ]
     },
+    "trips_view_state": {
+      "ui:order": [
+        "pitch",
+        "bearing"
+      ]
+    },
     "ui:order": [
       "workflow_details",
       "er_client_name",
@@ -445,8 +471,10 @@
       "subject_group_var",
       "convert_to_trajs",
       "terrain_exaggeration",
+      "trips_view_state",
+      "animation_settings",
       "draw_animation",
-      "create_animation"
+      "video_output_path"
     ]
   },
   "additionalProperties": false

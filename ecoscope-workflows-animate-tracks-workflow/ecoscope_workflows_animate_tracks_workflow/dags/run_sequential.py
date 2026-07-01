@@ -30,10 +30,19 @@ from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
     relocations_to_trajectory as relocations_to_trajectory,
 )
 from ecoscope_workflows_ext_mep.tasks import (
+    compute_view_state_from_gdf as compute_view_state_from_gdf,
+)
+from ecoscope_workflows_ext_mep.tasks import (
+    configure_video_export as configure_video_export,
+)
+from ecoscope_workflows_ext_mep.tasks import (
     create_elevation_decoder as create_elevation_decoder,
 )
 from ecoscope_workflows_ext_mep.tasks import (
     create_terrain_layer as create_terrain_layer,
+)
+from ecoscope_workflows_ext_mep.tasks import (
+    create_timeline_animation as create_timeline_animation,
 )
 from ecoscope_workflows_ext_mep.tasks import create_trips_layer as create_trips_layer
 from ecoscope_workflows_ext_mep.tasks import draw_animated_map as draw_animated_map
@@ -42,7 +51,6 @@ from ecoscope_workflows_ext_mep.tasks import (
 )
 from ecoscope_workflows_ext_mep.tasks import render_animation as render_animation
 from ecoscope_workflows_ext_mep.tasks import trajectory_to_trips as trajectory_to_trips
-from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
 
 from ..params import Params
 
@@ -360,7 +368,7 @@ def main(params: Params):
     )
 
     trips_view_state = (
-        view_state_deck_gdf.validate()
+        compute_view_state_from_gdf.validate()
         .set_task_instance_id("trips_view_state")
         .handle_errors()
         .with_tracing()
@@ -371,12 +379,7 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(
-            gdf=trajs_trips,
-            pitch=0,
-            bearing=0,
-            **(params_dict.get("trips_view_state") or {}),
-        )
+        .partial(gdf=trajs_trips, **(params_dict.get("trips_view_state") or {}))
         .call()
     )
 
@@ -442,6 +445,36 @@ def main(params: Params):
         .call()
     )
 
+    animation_settings = (
+        create_timeline_animation.validate()
+        .set_task_instance_id("animation_settings")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            fade_ratio=1.0,
+            fps_limit=30,
+            show_history=True,
+            history_color=[255, 255, 255],
+            head_outline_color=[255, 255, 255],
+            history_opacity=1.0,
+            fade_history=True,
+            show_head=True,
+            head_radius=12.25,
+            head_color=None,
+            head_outline_width=1.05,
+            auto_rotate_speed=0.0,
+            **(params_dict.get("animation_settings") or {}),
+        )
+        .call()
+    )
+
     draw_animation = (
         draw_animated_map.validate()
         .set_task_instance_id("draw_animation")
@@ -462,20 +495,7 @@ def main(params: Params):
             title=None,
             legend_style={"placement": "bottom-right"},
             view_state=trips_view_state,
-            entry_pitch=0,
-            entry_bearing=0,
-            animation={
-                "fade_ratio": 1.0,
-                "fps_limit": 30,
-                "show_history": True,
-                "history_color": [255, 255, 255],
-                "history_opacity": 1.0,
-                "fade_history": True,
-                "show_head": True,
-                "head_radius": 1.75,
-                "head_color": None,
-                "head_outline_width": 1.05,
-            },
+            animation=animation_settings,
             **(params_dict.get("draw_animation") or {}),
         )
         .call()
@@ -502,9 +522,9 @@ def main(params: Params):
         .call()
     )
 
-    create_animation = (
-        render_animation.validate()
-        .set_task_instance_id("create_animation")
+    video_output_path = (
+        configure_video_export.validate()
+        .set_task_instance_id("video_output_path")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -514,12 +534,28 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
+        .partial(filename=map_urls, **(params_dict.get("video_output_path") or {}))
+        .call()
+    )
+
+    create_animation = (
+        render_animation.validate()
+        .set_task_instance_id("create_animation")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
         .partial(
-            html_path=map_urls,
+            html_path=video_output_path,
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             out_path="animation.mp4",
             camera="static",
             fps=30,
+            duration={"auto": True, "seconds": 75.0},
             width=1280,
             height=720,
             device_scale_factor=1,

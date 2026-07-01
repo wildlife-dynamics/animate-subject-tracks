@@ -40,10 +40,19 @@ from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
     relocations_to_trajectory as relocations_to_trajectory,
 )
 from ecoscope_workflows_ext_mep.tasks import (
+    compute_view_state_from_gdf as compute_view_state_from_gdf,
+)
+from ecoscope_workflows_ext_mep.tasks import (
+    configure_video_export as configure_video_export,
+)
+from ecoscope_workflows_ext_mep.tasks import (
     create_elevation_decoder as create_elevation_decoder,
 )
 from ecoscope_workflows_ext_mep.tasks import (
     create_terrain_layer as create_terrain_layer,
+)
+from ecoscope_workflows_ext_mep.tasks import (
+    create_timeline_animation as create_timeline_animation,
 )
 from ecoscope_workflows_ext_mep.tasks import create_trips_layer as create_trips_layer
 from ecoscope_workflows_ext_mep.tasks import draw_animated_map as draw_animated_map
@@ -52,7 +61,6 @@ from ecoscope_workflows_ext_mep.tasks import (
 )
 from ecoscope_workflows_ext_mep.tasks import render_animation as render_animation
 from ecoscope_workflows_ext_mep.tasks import trajectory_to_trips as trajectory_to_trips
-from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
 
 # %% [markdown]
 # ## Set workflow details
@@ -87,7 +95,7 @@ workflow_details = (
 
 
 # %% [markdown]
-# ## Connect to earth ranger
+# ## Connect to EarthRanger
 
 # %%
 # parameters
@@ -178,7 +186,7 @@ groupers = (
 
 
 # %% [markdown]
-# ##
+# ## Set subject group name
 
 # %%
 # parameters
@@ -325,7 +333,7 @@ convert_to_trajs = (
 
 
 # %% [markdown]
-# ## Rename trajectory columns
+# ## Standardize trajectory column names
 
 # %%
 # parameters
@@ -366,7 +374,7 @@ rename_traj_cols = (
 
 
 # %% [markdown]
-# ## Persist relocations as geoparquet
+# ## Save relocations to GeoParquet
 
 # %%
 # parameters
@@ -400,7 +408,7 @@ persist_relocs_geoparquet = (
 
 
 # %% [markdown]
-# ## Persist trajectories as geoparquet
+# ## Save trajectories to GeoParquet
 
 # %%
 # parameters
@@ -434,7 +442,7 @@ persist_trajs_geoparquet = (
 
 
 # %% [markdown]
-# ## Terrain exaggeration factor
+# ## Configure terrain elevation decoder
 
 # %%
 # parameters
@@ -470,7 +478,7 @@ terrain_exaggeration = (
 
 
 # %% [markdown]
-# ## Convert trajectories to pydeck trip objects
+# ## Prepare trajectory animation data
 
 # %%
 # parameters
@@ -547,19 +555,22 @@ terrain_layer = (
 
 
 # %% [markdown]
-# ## Get trips view state
+# ## Calculate map view bounds
 
 # %%
 # parameters
 
-trips_view_state_params = dict()
+trips_view_state_params = dict(
+    pitch=...,
+    bearing=...,
+)
 
 # %%
 # call the task
 
 
 trips_view_state = (
-    view_state_deck_gdf.set_task_instance_id("trips_view_state")
+    compute_view_state_from_gdf.set_task_instance_id("trips_view_state")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -569,13 +580,13 @@ trips_view_state = (
         ],
         unpack_depth=1,
     )
-    .partial(gdf=trajs_trips, pitch=0, bearing=0, **trips_view_state_params)
+    .partial(gdf=trajs_trips, **trips_view_state_params)
     .call()
 )
 
 
 # %% [markdown]
-# ## Normalize trips timestamps
+# ## Normalize animation timestamps
 
 # %%
 # parameters
@@ -657,6 +668,50 @@ trips_layer = (
 
 
 # %% [markdown]
+# ## Configure animation settings
+
+# %%
+# parameters
+
+animation_settings_params = dict(
+    animation_speed=...,
+)
+
+# %%
+# call the task
+
+
+animation_settings = (
+    create_timeline_animation.set_task_instance_id("animation_settings")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        fade_ratio=1.0,
+        fps_limit=30,
+        show_history=True,
+        history_color=[255, 255, 255],
+        head_outline_color=[255, 255, 255],
+        history_opacity=1.0,
+        fade_history=True,
+        show_head=True,
+        head_radius=12.25,
+        head_color=None,
+        head_outline_width=1.05,
+        auto_rotate_speed=0.0,
+        **animation_settings_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Draw animated map
 
 # %%
@@ -690,20 +745,7 @@ draw_animation = (
         title=None,
         legend_style={"placement": "bottom-right"},
         view_state=trips_view_state,
-        entry_pitch=0,
-        entry_bearing=0,
-        animation={
-            "fade_ratio": 1.0,
-            "fps_limit": 30,
-            "show_history": True,
-            "history_color": [255, 255, 255],
-            "history_opacity": 1.0,
-            "fade_history": True,
-            "show_head": True,
-            "head_radius": 1.75,
-            "head_color": None,
-            "head_outline_width": 1.05,
-        },
+        animation=animation_settings,
         **draw_animation_params,
     )
     .call()
@@ -711,7 +753,7 @@ draw_animation = (
 
 
 # %% [markdown]
-# ## Persist map
+# ## Save animated map as HTML
 
 # %%
 # parameters
@@ -746,14 +788,42 @@ map_urls = (
 
 
 # %% [markdown]
-# ## Create animation
+# ## Configure video export
 
 # %%
 # parameters
 
-create_animation_params = dict(
-    duration=...,
+video_output_path_params = dict(
+    enabled=...,
 )
+
+# %%
+# call the task
+
+
+video_output_path = (
+    configure_video_export.set_task_instance_id("video_output_path")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(filename=map_urls, **video_output_path_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Render animation video
+
+# %%
+# parameters
+
+create_animation_params = dict()
 
 # %%
 # call the task
@@ -765,17 +835,17 @@ create_animation = (
     .with_tracing()
     .skipif(
         conditions=[
-            any_is_empty_df,
             any_dependency_skipped,
         ],
         unpack_depth=1,
     )
     .partial(
-        html_path=map_urls,
+        html_path=video_output_path,
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         out_path="animation.mp4",
         camera="static",
         fps=30,
+        duration={"auto": True, "seconds": 75.0},
         width=1280,
         height=720,
         device_scale_factor=1,
@@ -812,7 +882,7 @@ create_animation = (
 
 
 # %% [markdown]
-# ## Create animated Widget
+# ## Create animated map widget
 
 # %%
 # parameters

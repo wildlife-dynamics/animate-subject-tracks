@@ -43,10 +43,19 @@ from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
     relocations_to_trajectory as relocations_to_trajectory,
 )
 from ecoscope_workflows_ext_mep.tasks import (
+    compute_view_state_from_gdf as compute_view_state_from_gdf,
+)
+from ecoscope_workflows_ext_mep.tasks import (
+    configure_video_export as configure_video_export,
+)
+from ecoscope_workflows_ext_mep.tasks import (
     create_elevation_decoder as create_elevation_decoder,
 )
 from ecoscope_workflows_ext_mep.tasks import (
     create_terrain_layer as create_terrain_layer,
+)
+from ecoscope_workflows_ext_mep.tasks import (
+    create_timeline_animation as create_timeline_animation,
 )
 from ecoscope_workflows_ext_mep.tasks import create_trips_layer as create_trips_layer
 from ecoscope_workflows_ext_mep.tasks import draw_animated_map as draw_animated_map
@@ -55,7 +64,6 @@ from ecoscope_workflows_ext_mep.tasks import (
 )
 from ecoscope_workflows_ext_mep.tasks import render_animation as render_animation
 from ecoscope_workflows_ext_mep.tasks import trajectory_to_trips as trajectory_to_trips
-from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
 
 from ..params import Params
 
@@ -83,9 +91,16 @@ def main(params: Params):
         "trips_view_state": ["trajs_trips"],
         "normalize_trips": ["trajs_trips"],
         "trips_layer": ["normalize_trips"],
-        "draw_animation": ["trips_layer", "terrain_layer", "trips_view_state"],
+        "animation_settings": [],
+        "draw_animation": [
+            "trips_layer",
+            "terrain_layer",
+            "trips_view_state",
+            "animation_settings",
+        ],
         "map_urls": ["draw_animation"],
-        "create_animation": ["map_urls"],
+        "video_output_path": ["map_urls"],
+        "create_animation": ["video_output_path"],
         "animated_map_widget": ["map_urls"],
         "animate_dashboard": [
             "workflow_details",
@@ -414,7 +429,7 @@ def main(params: Params):
             method="call",
         ),
         "trips_view_state": Node(
-            async_task=view_state_deck_gdf.validate()
+            async_task=compute_view_state_from_gdf.validate()
             .set_task_instance_id("trips_view_state")
             .handle_errors()
             .with_tracing()
@@ -428,8 +443,6 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "gdf": DependsOn("trajs_trips"),
-                "pitch": 0,
-                "bearing": 0,
             }
             | (params_dict.get("trips_view_state") or {}),
             method="call",
@@ -496,6 +509,44 @@ def main(params: Params):
             | (params_dict.get("trips_layer") or {}),
             method="call",
         ),
+        "animation_settings": Node(
+            async_task=create_timeline_animation.validate()
+            .set_task_instance_id("animation_settings")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "fade_ratio": 1.0,
+                "fps_limit": 30,
+                "show_history": True,
+                "history_color": [
+                    255,
+                    255,
+                    255,
+                ],
+                "head_outline_color": [
+                    255,
+                    255,
+                    255,
+                ],
+                "history_opacity": 1.0,
+                "fade_history": True,
+                "show_head": True,
+                "head_radius": 12.25,
+                "head_color": None,
+                "head_outline_width": 1.05,
+                "auto_rotate_speed": 0.0,
+            }
+            | (params_dict.get("animation_settings") or {}),
+            method="call",
+        ),
         "draw_animation": Node(
             async_task=draw_animated_map.validate()
             .set_task_instance_id("draw_animation")
@@ -523,24 +574,7 @@ def main(params: Params):
                     "placement": "bottom-right",
                 },
                 "view_state": DependsOn("trips_view_state"),
-                "entry_pitch": 0,
-                "entry_bearing": 0,
-                "animation": {
-                    "fade_ratio": 1.0,
-                    "fps_limit": 30,
-                    "show_history": True,
-                    "history_color": [
-                        255,
-                        255,
-                        255,
-                    ],
-                    "history_opacity": 1.0,
-                    "fade_history": True,
-                    "show_head": True,
-                    "head_radius": 1.75,
-                    "head_color": None,
-                    "head_outline_width": 1.05,
-                },
+                "animation": DependsOn("animation_settings"),
             }
             | (params_dict.get("draw_animation") or {}),
             method="call",
@@ -566,9 +600,9 @@ def main(params: Params):
             | (params_dict.get("map_urls") or {}),
             method="call",
         ),
-        "create_animation": Node(
-            async_task=render_animation.validate()
-            .set_task_instance_id("create_animation")
+        "video_output_path": Node(
+            async_task=configure_video_export.validate()
+            .set_task_instance_id("video_output_path")
             .handle_errors()
             .with_tracing()
             .skipif(
@@ -580,11 +614,33 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "html_path": DependsOn("map_urls"),
+                "filename": DependsOn("map_urls"),
+            }
+            | (params_dict.get("video_output_path") or {}),
+            method="call",
+        ),
+        "create_animation": Node(
+            async_task=render_animation.validate()
+            .set_task_instance_id("create_animation")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "html_path": DependsOn("video_output_path"),
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
                 "out_path": "animation.mp4",
                 "camera": "static",
                 "fps": 30,
+                "duration": {
+                    "auto": True,
+                    "seconds": 75.0,
+                },
                 "width": 1280,
                 "height": 720,
                 "device_scale_factor": 1,
