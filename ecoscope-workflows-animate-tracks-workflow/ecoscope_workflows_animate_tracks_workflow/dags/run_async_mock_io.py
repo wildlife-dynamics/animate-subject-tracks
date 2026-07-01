@@ -486,7 +486,7 @@ def main(params: Params):
                 "layer_style": {
                     "get_timestamps": "timestamps",
                     "get_color": "color",
-                    "get_width": 2.25,
+                    "get_width": 1.75,
                     "width_units": "pixels",
                     "width_scale": 1,
                     "width_min_pixels": 1,
