@@ -239,7 +239,7 @@ workflow:
       history_opacity: 1.00
       fade_history: true
       show_head: true
-      head_radius: 12.25
+      head_radius: 2.25
       head_color: null
       head_outline_width: 1.05
       auto_rotate_speed: 0.0

@@ -466,7 +466,7 @@ def main(params: Params):
             history_opacity=1.0,
             fade_history=True,
             show_head=True,
-            head_radius=12.25,
+            head_radius=2.25,
             head_color=None,
             head_outline_width=1.05,
             auto_rotate_speed=0.0,
