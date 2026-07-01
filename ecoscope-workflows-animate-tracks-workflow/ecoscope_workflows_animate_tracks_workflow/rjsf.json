@@ -77,7 +77,7 @@
     },
     "Subject Group": {
       "type": "object",
-      "description": "Choose subject group to generate collar voltage charts and overall speedmap",
+      "description": "Choose subject group from EarthRanger to animate. This will be used to filter observations for the animation.",
       "ecoscope:task_group": true,
       "properties": {
         "subject_group_var": {

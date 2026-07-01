@@ -281,7 +281,7 @@ class FormData(BaseModel):
     Subject_Group: Optional[SubjectGroup] = Field(
         None,
         alias="Subject Group",
-        description="Choose subject group to generate collar voltage charts and overall speedmap",
+        description="Choose subject group from EarthRanger to animate. This will be used to filter observations for the animation.",
     )
     convert_to_trajs: Optional[ConvertToTrajs] = Field(
         None, title="Convert relocations to trajectories"

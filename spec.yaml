@@ -68,7 +68,7 @@ workflow:
   # get relocations:collar voltages for subjects and persist file
   - title: Subject Group
     type: task-group
-    description: Choose subject group to generate collar voltage charts and overall speedmap
+    description: Choose subject group from EarthRanger to animate. This will be used to filter observations for the animation.
     tasks:
       - name: Set subject group name
         id: subject_group_var
