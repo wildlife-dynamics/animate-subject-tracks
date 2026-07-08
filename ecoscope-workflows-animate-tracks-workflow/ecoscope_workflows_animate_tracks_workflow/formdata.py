@@ -330,8 +330,8 @@ class DrawAnimation(BaseModel):
 
 class KeyframesCamera(BaseModel):
     type_: Literal["keyframes"] = Field("keyframes", title="Type ")
-    source: Optional[Union[KeyframesFromFile, KeyframesFromSubject]] = Field(
-        default_factory=lambda: KeyframesFromFile.model_validate(
+    source: Optional[Union[KeyframesFromSubject, KeyframesFromFile]] = Field(
+        default_factory=lambda: KeyframesFromSubject.model_validate(
             {"type_": "subject", "subject": None}
         ),
         description="How to build the camera path when `keyframes` is empty: upload a file, or auto-derive one by following a subject. Ignored when `keyframes` is provided directly.",

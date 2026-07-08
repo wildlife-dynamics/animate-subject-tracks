@@ -565,10 +565,10 @@
           "ecoscope:advanced": true,
           "oneOf": [
             {
-              "$ref": "#/$defs/KeyframesFromFile"
+              "$ref": "#/$defs/KeyframesFromSubject"
             },
             {
-              "$ref": "#/$defs/KeyframesFromSubject"
+              "$ref": "#/$defs/KeyframesFromFile"
             }
           ],
           "title": "Source"
