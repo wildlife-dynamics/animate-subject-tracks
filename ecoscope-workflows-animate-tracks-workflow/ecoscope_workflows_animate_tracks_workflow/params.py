@@ -178,6 +178,17 @@ class CinematicCamera(BaseModel):
     type_: Literal["cinematic"] = Field("cinematic", title="Type ")
 
 
+class DurationConfig(BaseModel):
+    auto: Optional[bool] = Field(
+        True,
+        description="Match the animation's own playback length. Uncheck to set a fixed duration.",
+        title="Auto",
+    )
+    seconds: Optional[float] = Field(
+        75.0, description="Video duration in seconds.", title="Seconds"
+    )
+
+
 class Type1(str, Enum):
     fit = "fit"
 
@@ -371,6 +382,12 @@ class CreateAnimation(BaseModel):
     ] = Field(
         default_factory=lambda: StaticCamera.model_validate({"type_": "static"}),
         title="Camera",
+    )
+    duration: Optional[DurationConfig] = Field(
+        default_factory=lambda: DurationConfig.model_validate(
+            {"auto": True, "seconds": 75.0}
+        ),
+        title="Duration",
     )
 
 

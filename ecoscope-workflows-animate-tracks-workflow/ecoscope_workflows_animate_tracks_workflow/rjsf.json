@@ -276,6 +276,18 @@
                 "type_": "static"
               },
               "title": "Camera"
+            },
+            "duration": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/DurationConfig"
+                }
+              ],
+              "default": {
+                "auto": true,
+                "seconds": 75.0
+              },
+              "title": "Duration"
             }
           },
           "required": [],
@@ -487,6 +499,24 @@
         }
       },
       "title": "CinematicCamera",
+      "type": "object"
+    },
+    "DurationConfig": {
+      "properties": {
+        "auto": {
+          "default": true,
+          "description": "Match the animation's own playback length. Uncheck to set a fixed duration.",
+          "title": "Auto",
+          "type": "boolean"
+        },
+        "seconds": {
+          "default": 75.0,
+          "description": "Video duration in seconds.",
+          "title": "Seconds",
+          "type": "number"
+        }
+      },
+      "title": "DurationConfig",
       "type": "object"
     },
     "FitCamera": {
@@ -719,7 +749,13 @@
       "ui:order": [
         "video_output_path",
         "create_animation"
-      ]
+      ],
+      "create_animation": {
+        "ui:order": [
+          "camera",
+          "duration"
+        ]
+      }
     },
     "ui:order": [
       "workflow_details",

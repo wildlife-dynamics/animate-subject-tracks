@@ -825,6 +825,7 @@ video_output_path = (
 
 create_animation_params = dict(
     camera=...,
+    duration=...,
 )
 
 # %%
@@ -846,7 +847,6 @@ create_animation = (
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         out_path="animation.mp4",
         fps=30,
-        duration={"auto": False, "seconds": 60.0},
         width=1280,
         height=720,
         device_scale_factor=1,
