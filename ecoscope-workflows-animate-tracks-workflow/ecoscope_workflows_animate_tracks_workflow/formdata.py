@@ -5,9 +5,17 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Literal, Optional, Union
+from typing import List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, PositiveFloat, confloat, conint
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PositiveFloat,
+    confloat,
+    conint,
+    constr,
+)
 
 
 class WorkflowDetails(BaseModel):
@@ -85,6 +93,58 @@ class TimezoneInfo(BaseModel):
     tzCode: str = Field(..., title="Tzcode")
     name: str = Field(..., title="Name")
     utc: str = Field(..., title="Utc")
+
+
+class FeatureSetQuery(BaseModel):
+    featureset_name: constr(min_length=1) = Field(
+        ...,
+        description="Display name of the featureset exactly as it appears in EarthRanger e.g. 'Boundaries'.",
+        title="Featureset Name",
+    )
+
+
+class LineStyle(BaseModel):
+    color: Optional[List[str]] = Field(
+        [],
+        description="Line hex colour(s) e.g. ['#E63946']. Cycles across rows.",
+        title="Color",
+    )
+    opacity: Optional[confloat(ge=0.0, le=1.0)] = Field(
+        1.0, description="Line opacity 0–1.", title="Opacity"
+    )
+    width: Optional[float] = Field(
+        2.0, description="Line width in pixels.", title="Width"
+    )
+
+
+class PointStyle(BaseModel):
+    color: Optional[List[str]] = Field(
+        [],
+        description="Fill hex colour(s). For SVG icons this tints the marker. Cycles across rows.",
+        title="Color",
+    )
+    size: Optional[float] = Field(
+        None,
+        description="Point radius / icon size in pixels. Leave empty to use the size set in EarthRanger.",
+        title="Size",
+    )
+
+
+class PolygonStyle(BaseModel):
+    fill_color: Optional[List[str]] = Field(
+        [],
+        description="Fill hex colour(s) e.g. ['#FFA500']. Cycles across rows.",
+        title="Fill Color",
+    )
+    stroke_color: Optional[str] = Field(
+        None, description="Border hex colour.", title="Stroke Color"
+    )
+    fill_opacity: Optional[confloat(ge=0.0, le=1.0)] = Field(
+        1.0, description="Fill opacity 0–1.", title="Fill Opacity"
+    )
+    stroke_width: Optional[float] = Field(
+        2.0, description="Border width in pixels.", title="Stroke Width"
+    )
 
 
 class TrajectorySegmentFilter(BaseModel):
@@ -339,6 +399,27 @@ class DrawAnimation(BaseModel):
     )
 
 
+class LayerStyle(BaseModel):
+    polygon: Optional[List[PolygonStyle]] = Field(
+        [],
+        description="Polygon styling. Add one entry to override ER native colours.",
+        max_length=1,
+        title="Polygon",
+    )
+    line: Optional[List[LineStyle]] = Field(
+        [],
+        description="Line styling. Add one entry to override ER native colours.",
+        max_length=1,
+        title="Line",
+    )
+    point: Optional[List[PointStyle]] = Field(
+        [],
+        description="Point and icon marker styling. Add one entry to override ER native colours.",
+        max_length=1,
+        title="Point",
+    )
+
+
 class KeyframesCamera(BaseModel):
     type_: Literal["keyframes"] = Field("keyframes", title="Type ")
     source: Optional[Union[KeyframesFromSubject, KeyframesFromFile]] = Field(
@@ -406,6 +487,57 @@ class VideoCreation(BaseModel):
     )
 
 
+class FeatureIdQuery(BaseModel):
+    feature_id: str = Field(
+        ...,
+        description="UUID of a specific spatial feature available on EarthRanger.",
+        title="Feature Id",
+    )
+    style: Optional[List[LayerStyle]] = Field(
+        [],
+        description="Optional: Override how EarthRanger spatial features are rendered on the map. If not specified, features will use their native EarthRanger colours and styling.",
+        max_length=1,
+        title="Style",
+    )
+
+
+class FeatureTypeQuery(BaseModel):
+    feature_type: constr(min_length=1) = Field(
+        ...,
+        description="Feature type name as shown in EarthRanger e.g. 'Conservancy'.",
+        title="Feature Type",
+    )
+    style: Optional[List[LayerStyle]] = Field(
+        [],
+        description="Optional: Override how EarthRanger spatial features are rendered on the map. If not specified, features will use their native EarthRanger colours and styling.",
+        max_length=1,
+        title="Style",
+    )
+
+
+class EarthRangerSource(BaseModel):
+    query: Optional[Union[FeatureSetQuery, FeatureTypeQuery, FeatureIdQuery]] = Field(
+        None, title="Query"
+    )
+
+
+class IncludeErFeature(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    source: Optional[EarthRangerSource] = Field(None, title="Source")
+    group_by: Optional[str] = Field(
+        "type_name",
+        description="Column used to group features in the map legend e.g. 'Feature Type' shows one legend entry per feature type.",
+        title="Group By",
+    )
+    legend_title: Optional[str] = Field(
+        "",
+        description="Label shown in the map legend e.g. 'Park Boundary'.",
+        title="Legend Title",
+    )
+
+
 class FormData(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -425,6 +557,9 @@ class FormData(BaseModel):
         None,
         alias="Subject Group",
         description="Choose subject group to generate collar voltage charts and overall speedmap",
+    )
+    include_er_feature: Optional[IncludeErFeature] = Field(
+        None, title="Include earthranger spatial features"
     )
     convert_to_trajs: Optional[ConvertToTrajs] = Field(
         None, title="Convert relocations to trajectories"
