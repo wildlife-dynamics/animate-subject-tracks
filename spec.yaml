@@ -29,14 +29,14 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-mep
-    version: "0.0.24.*"
+    version: "0.0.25.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
 rjsf-overrides:
   properties:
     Subject Group.properties.subject_group_var.properties.var.title: Subject Group Name
     Subject Group.properties.subject_group_var.properties.var.default: Elephants
-    trips_view_state.properties.pitch.default: 45
+    trips_view_state.properties.pitch.default: 0
 task-instance-defaults:
   skipif:
     conditions:
@@ -68,7 +68,7 @@ workflow:
   # get relocations:collar voltages for subjects and persist file
   - title: Subject Group
     type: task-group
-    description: Choose subject group from EarthRanger to animate. This will be used to filter observations for the animation.
+    description: Choose subject group to generate collar voltage charts and overall speedmap
     tasks:
       - name: Set subject group name
         id: subject_group_var
@@ -209,7 +209,7 @@ workflow:
       layer_style: 
         get_timestamps: timestamps 
         get_color: color 
-        get_width: 1.75
+        get_width: 2.15
         width_units: pixels 
         width_scale: 1
         width_min_pixels: 1
@@ -239,9 +239,9 @@ workflow:
       history_opacity: 1.00
       fade_history: true
       show_head: true
-      head_radius: 2.25
+      # head_radius: 2.25
       head_color: null
-      head_outline_width: 1.05
+      # head_outline_width: 1.05
       auto_rotate_speed: 0.0
 
   - name: Draw animated map
@@ -259,10 +259,7 @@ workflow:
         placement: "bottom-right"
       view_state: ${{ workflow.trips_view_state.return }}
       animation: ${{ workflow.animation_settings.return }}
-      # head_layer:
-      #   enabled: false
-      #   glb: "https://raw.githubusercontent.com/wildlife-dynamics/animate_subject_tracks/main/african_bush_elephant.glb"
-      
+
   - name: Save animated map as HTML
     id: map_urls
     task: persist_text
@@ -293,40 +290,25 @@ workflow:
           html_path: ${{ workflow.video_output_path.return }}
           output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
           out_path: "animation.mp4"
-          camera: static 
-          fps: 30 
+          fps: 30
           duration:
-            auto: true
-            seconds: 75.0
-          width: 1280 
-          height: 720 
+            auto: false
+            seconds: 60.0
+          width: 1280
+          height: 720
           device_scale_factor: 1
-          gl: auto 
+          gl: auto
           workers: 1
-          capture_format: jpeg 
-          jpeg_quality: 92 
-          settle_ms: 30 
-          settle_timeout_ms: 8000 
+          capture_format: jpeg
+          jpeg_quality: 92
+          settle_ms: 30
+          settle_timeout_ms: 8000
           head_ready_timeout_ms: 30000
-          crf: 18 
-          x264_preset: veryfast 
-          subject_index: 0 
-          zoom: null 
-          pitch: null 
-          bearing: null 
-          follow_smoothing: 0.25 
-          zoom_boost: 0.0 
-          heading_lock: false 
-          orbits: 1.0 
-          fit_padding: 80
-          lead_frac: 0.0 
-          bearing_mode: rotate
-          rotate_deg: 45.0 
-          intro_frac: 0.12
-          intro_zoom_out: 2.5 
-          start_frac: 0.0 
-          end_frac: 1.0 
-          verbose: true 
+          crf: 18
+          x264_preset: veryfast
+          start_frac: 0.0
+          end_frac: 1.0
+          verbose: true
       
     # Map widgets
   - name: Create animated map widget

@@ -255,6 +255,6 @@ def convert(
 if __name__ == "__main__":
     # Patch sys.path on windows to safeguard against import errors
     # due to long file paths in deeply nested directory structures
-    # if sys.platform == "win32":
-    #     sys.path = [to_windows_safe_path(p) for p in sys.path]
+    if sys.platform == "win32":
+        sys.path = [to_windows_safe_path(p) for p in sys.path]
     cli()

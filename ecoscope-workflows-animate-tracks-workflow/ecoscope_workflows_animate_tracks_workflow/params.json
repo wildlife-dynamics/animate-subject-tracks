@@ -166,6 +166,20 @@
           "title": "Animation Speed",
           "type": "number",
           "ecoscope:advanced": true
+        },
+        "head_radius": {
+          "default": 2.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Head Radius",
+          "type": "number",
+          "ecoscope:advanced": true
+        },
+        "head_outline_width": {
+          "default": 1.5,
+          "minimum": 0.0,
+          "title": "Head Outline Width",
+          "type": "number",
+          "ecoscope:advanced": true
         }
       },
       "type": "object",
@@ -189,18 +203,11 @@
             "size_max_pixels": 75.0,
             "face_heading": true,
             "yaw_offset": 0.0,
-            "model_pitch": 90.0,
-            "model_roll": 0.0,
+            "model_pitch": 0.0,
+            "model_roll": 90.0,
             "smooth_samples": 2,
             "terrain_pitch": false,
             "terrain_pitch_scale": 1.0,
-            "min_move_m": 3.0,
-            "pbr_lighting": true,
-            "tint": [
-              220,
-              220,
-              255
-            ],
             "use_track_color": true
           },
           "title": "Head Layer",
@@ -224,6 +231,43 @@
       "type": "object",
       "required": [],
       "title": "Configure video export"
+    },
+    "create_animation": {
+      "additionalProperties": false,
+      "properties": {
+        "camera": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StaticCamera"
+            },
+            {
+              "$ref": "#/$defs/FollowCamera"
+            },
+            {
+              "$ref": "#/$defs/Follow3DCamera"
+            },
+            {
+              "$ref": "#/$defs/OrbitCamera"
+            },
+            {
+              "$ref": "#/$defs/FitCamera"
+            },
+            {
+              "$ref": "#/$defs/CinematicCamera"
+            },
+            {
+              "$ref": "#/$defs/KeyframesCamera"
+            }
+          ],
+          "default": {
+            "type_": "static"
+          },
+          "title": "Camera"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Render animation video"
     }
   },
   "$defs": {
@@ -369,14 +413,14 @@
           "type": "number"
         },
         "model_pitch": {
-          "default": 90.0,
+          "default": 0.0,
           "description": "Tilt of the MODEL itself (deg), independent of the camera. Use to correct a model authored nose-up/down; NOT the view pitch.",
           "ecoscope:advanced": true,
           "title": "Model Pitch",
           "type": "number"
         },
         "model_roll": {
-          "default": 0.0,
+          "default": 90.0,
           "description": "Bank of the MODEL itself (deg), independent of the camera.",
           "ecoscope:advanced": true,
           "title": "Model Roll",
@@ -403,34 +447,6 @@
           "title": "Terrain Pitch Scale",
           "type": "number"
         },
-        "min_move_m": {
-          "default": 3.0,
-          "description": "If the subject moves less than this (m) across the smoothing window, hold the last heading and keep the model level -- stops it spinning or tipping while milling in place.",
-          "ecoscope:advanced": true,
-          "title": "Min Move M",
-          "type": "number"
-        },
-        "pbr_lighting": {
-          "default": true,
-          "description": "Physically-based lighting ('pbr'); False -> flat shading.",
-          "ecoscope:advanced": true,
-          "title": "Pbr Lighting",
-          "type": "boolean"
-        },
-        "tint": {
-          "default": [
-            220,
-            220,
-            255
-          ],
-          "description": "Optional RGB tint over the model as [R, G, B]. None -> the model's own materials.",
-          "ecoscope:advanced": true,
-          "items": {
-            "type": "integer"
-          },
-          "title": "Tint",
-          "type": "array"
-        },
         "use_track_color": {
           "default": true,
           "description": "Colour the model with each subject's track colour. False -> use `tint` (or the model's own materials). Note: the colour multiplies the model's material, so it reads truest with a light/neutral glb and flat lighting (pbr_lighting=False).",
@@ -440,6 +456,219 @@
         }
       },
       "title": "ScenegraphLayerDefinition",
+      "type": "object"
+    },
+    "CinematicCamera": {
+      "description": "Camera does a smooth fly-through: leads the subject, banks its bearing,\nand optionally flies in from altitude at the start.\n\nFaithful to the Mapbox \"cinematic route\" technique, expressed in deck.gl's\nMapView.",
+      "properties": {
+        "type_": {
+          "const": "cinematic",
+          "default": "cinematic",
+          "enum": [
+            "cinematic"
+          ],
+          "title": "Type ",
+          "type": "string"
+        }
+      },
+      "title": "CinematicCamera",
+      "type": "object"
+    },
+    "FitCamera": {
+      "description": "Camera zooms to keep every point visited so far in frame.\n\nZoom is always computed from the visited bounds (there's no zoom\noverride); pitch and bearing can still be fixed.",
+      "properties": {
+        "type_": {
+          "const": "fit",
+          "default": "fit",
+          "enum": [
+            "fit"
+          ],
+          "title": "Type ",
+          "type": "string"
+        }
+      },
+      "title": "FitCamera",
+      "type": "object"
+    },
+    "Follow3DCamera": {
+      "description": "Camera tracks a subject (or the group) in a tilted, 3D chase-cam view.\n\nLike FollowCamera, but pitched by default and able to rotate its heading\nto match the tracked subject's direction of travel (heading_lock).",
+      "properties": {
+        "type_": {
+          "const": "follow_3d",
+          "default": "follow_3d",
+          "enum": [
+            "follow_3d"
+          ],
+          "title": "Type ",
+          "type": "string"
+        }
+      },
+      "title": "Follow3DCamera",
+      "type": "object"
+    },
+    "FollowCamera": {
+      "description": "Camera tracks a subject (or the group) in a flat, top-down-ish view.\n\nLongitude/latitude follow the tracked subject(s) every frame; pitch stays\nlevel (0) unless overridden and bearing stays fixed. For a tilted, 3D\nchase-cam that can also rotate with the subject's heading, use\nFollow3DCamera instead.",
+      "properties": {
+        "type_": {
+          "const": "follow",
+          "default": "follow",
+          "enum": [
+            "follow"
+          ],
+          "title": "Type ",
+          "type": "string"
+        }
+      },
+      "title": "FollowCamera",
+      "type": "object"
+    },
+    "KeyframesCamera": {
+      "description": "Camera flies through a set of waypoints while the data animates.\n\nPick a `source`: upload a waypoint file (KeyframesFromFile) or auto-derive a\npath by following a subject (KeyframesFromSubject) -- see also the\nderive_camera_keyframes task, which does the same derivation as an explicit,\ninspectable/editable list of keyframes. Alternatively, supply your own\n``keyframes`` (a list of CameraKeyframe) programmatically -- these can be\nplaced anywhere and are not tied to any subject's track, and take priority\nover `source` when non-empty.",
+      "properties": {
+        "type_": {
+          "const": "keyframes",
+          "default": "keyframes",
+          "enum": [
+            "keyframes"
+          ],
+          "title": "Type ",
+          "type": "string"
+        },
+        "source": {
+          "default": {
+            "type_": "subject",
+            "subject": null
+          },
+          "description": "How to build the camera path when `keyframes` is empty: upload a file, or auto-derive one by following a subject. Ignored when `keyframes` is provided directly.",
+          "discriminator": {
+            "mapping": {
+              "file": "#/$defs/KeyframesFromFile",
+              "subject": "#/$defs/KeyframesFromSubject"
+            },
+            "propertyName": "type_"
+          },
+          "ecoscope:advanced": true,
+          "oneOf": [
+            {
+              "$ref": "#/$defs/KeyframesFromFile"
+            },
+            {
+              "$ref": "#/$defs/KeyframesFromSubject"
+            }
+          ],
+          "title": "Source"
+        },
+        "keyframe_easing": {
+          "default": "smooth",
+          "description": "How the camera moves between keyframes: 'smooth' eases in/out of each waypoint, 'linear' moves at constant speed, 'spline' curves through waypoints (Catmull-Rom) without pausing at them.",
+          "ecoscope:advanced": true,
+          "enum": [
+            "smooth",
+            "linear",
+            "spline"
+          ],
+          "title": "Keyframe Easing",
+          "type": "string"
+        },
+        "zoom": {
+          "default": 12,
+          "description": "Zoom applied to every auto-derived keyframe. None -> the scene's initial zoom. Not user-configurable; set via a workflow's spec.yaml if a non-default value is needed.",
+          "ecoscope:advanced": true,
+          "title": "Zoom",
+          "type": "number"
+        },
+        "pitch": {
+          "default": 45,
+          "description": "Pitch applied to every auto-derived keyframe. None -> the scene's initial pitch. Not user-configurable; set via a workflow's spec.yaml if a non-default value is needed.",
+          "ecoscope:advanced": true,
+          "title": "Pitch",
+          "type": "number"
+        },
+        "bearing": {
+          "default": 0,
+          "description": "Bearing applied to every auto-derived keyframe. None -> the scene's initial bearing. Not user-configurable; set via a workflow's spec.yaml if a non-default value is needed.",
+          "ecoscope:advanced": true,
+          "title": "Bearing",
+          "type": "number"
+        }
+      },
+      "title": "KeyframesCamera",
+      "type": "object"
+    },
+    "KeyframesFromFile": {
+      "description": "Camera path loaded from an uploaded waypoint file.",
+      "properties": {
+        "type_": {
+          "const": "file",
+          "default": "file",
+          "enum": [
+            "file"
+          ],
+          "title": "Type ",
+          "type": "string"
+        },
+        "keyframes_file": {
+          "default": null,
+          "description": "Path to an uploaded keyframe file: a .json list of {lon, lat, t?, zoom?, pitch?, bearing?} objects, a .geojson of Point features (extras read from properties), or a .csv/.tsv with lon/lat columns.",
+          "title": "Keyframes File",
+          "type": "string"
+        }
+      },
+      "title": "KeyframesFromFile",
+      "type": "object"
+    },
+    "KeyframesFromSubject": {
+      "description": "Camera path auto-derived from the animated data by following one subject (or the group).",
+      "properties": {
+        "type_": {
+          "const": "subject",
+          "default": "subject",
+          "enum": [
+            "subject"
+          ],
+          "title": "Type ",
+          "type": "string"
+        },
+        "subject": {
+          "default": null,
+          "description": "Which subject to follow -- a value from the 'name' (or 'groupby_col') column, a positional index (as digits, e.g. '2'), 'all' for the group's mean position, or empty for the longest-running track.",
+          "title": "Subject",
+          "type": "string"
+        }
+      },
+      "title": "KeyframesFromSubject",
+      "type": "object"
+    },
+    "OrbitCamera": {
+      "description": "Camera circles the scene's centroid at a constant tilt.\n\nNot tied to any subject -- it orbits the mean position of every visited\npoint in the scene.",
+      "properties": {
+        "type_": {
+          "const": "orbit",
+          "default": "orbit",
+          "enum": [
+            "orbit"
+          ],
+          "title": "Type ",
+          "type": "string"
+        }
+      },
+      "title": "OrbitCamera",
+      "type": "object"
+    },
+    "StaticCamera": {
+      "description": "Camera holds the scene's initial view for the whole clip.\n\nNo motion, no overrides -- whatever view the map/animation was authored\nwith is what renders. Pick one of the other camera types for movement.",
+      "properties": {
+        "type_": {
+          "const": "static",
+          "default": "static",
+          "enum": [
+            "static"
+          ],
+          "title": "Type ",
+          "type": "string"
+        }
+      },
+      "title": "StaticCamera",
       "type": "object"
     }
   },
@@ -464,6 +693,13 @@
         "bearing"
       ]
     },
+    "animation_settings": {
+      "ui:order": [
+        "animation_speed",
+        "head_radius",
+        "head_outline_width"
+      ]
+    },
     "ui:order": [
       "workflow_details",
       "er_client_name",
@@ -474,7 +710,8 @@
       "trips_view_state",
       "animation_settings",
       "draw_animation",
-      "video_output_path"
+      "video_output_path",
+      "create_animation"
     ]
   },
   "additionalProperties": false
