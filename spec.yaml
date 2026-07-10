@@ -29,7 +29,7 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-mep
-    version: "0.0.26.*"
+    version: "0.0.27.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
 rjsf-overrides:
@@ -86,17 +86,17 @@ workflow:
       include_details: true
       include_subjectsource_details: true
 
-  - name: Include earthranger spatial features 
-    id: include_er_feature 
-    task: get_spatial_features 
-    partial: 
-      client: ${{ workflow.er_client_name.return }}
+  # - name: Include earthranger spatial features 
+  #   id: include_er_feature 
+  #   task: get_spatial_features 
+  #   partial: 
+  #     client: ${{ workflow.er_client_name.return }}
   
-  - name: Create spatial features layer 
-    id: er_spatial_layer 
-    task: create_spatial_features_layer 
-    partial:  
-      geodataframe: ${{ workflow.include_er_feature.return }}
+  # - name: Create spatial features layer 
+  #   id: er_spatial_layer 
+  #   task: create_spatial_features_layer 
+  #   partial:  
+  #     geodataframe: ${{ workflow.include_er_feature.return }}
 
   - name: Transform observations to relocations
     id: subject_reloc
@@ -256,20 +256,19 @@ workflow:
       # head_outline_width: 1.05
       auto_rotate_speed: 0.0
 
-  - name: Combine spatial layers with grouped layers
-    id: combined_bse_layers
-    task: combine_deckgl_map_layers
-    partial: 
-      static_layers: 
-        - ${{ workflow.er_spatial_layer.return }}
-      grouped_layers: ${{ workflow.trips_layer.return }} 
-
+  # - name: Combine spatial layers with grouped layers
+  #   id: combined_bse_layers
+  #   task: combine_deckgl_map_layers
+  #   partial: 
+  #     static_layers: 
+  #       - ${{ workflow.er_spatial_layer.return }}
+  #     grouped_layers: ${{ workflow.trips_layer.return }} 
 
   - name: Draw animated map
     id: draw_animation
     task: draw_animated_map
     partial:
-      geo_layers: ${{ workflow.combined_bse_layers.return }}
+      geo_layers: ${{ workflow.trips_layer.return }} 
       tile_layers:
         - ${{ workflow.terrain_layer.return }}
       static: false
@@ -314,8 +313,6 @@ workflow:
           # duration:
           #   auto: false
           #   seconds: 60.0
-          width: 1280
-          height: 720
           device_scale_factor: 1
           gl: auto
           workers: 1

@@ -19,12 +19,6 @@ from ecoscope_workflows_core.tasks.skip import (
 )
 from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_df
 from ecoscope_workflows_core.tasks.transformation import map_columns as map_columns
-from ecoscope_workflows_ext_custom.tasks.io import (
-    get_spatial_features as get_spatial_features,
-)
-from ecoscope_workflows_ext_custom.tasks.results import (
-    create_spatial_features_layer as create_spatial_features_layer,
-)
 from ecoscope_workflows_ext_ecoscope.tasks.io import (
     get_subjectgroup_observations as get_subjectgroup_observations,
 )
@@ -57,9 +51,6 @@ from ecoscope_workflows_ext_mep.tasks import (
 )
 from ecoscope_workflows_ext_mep.tasks import render_animation as render_animation
 from ecoscope_workflows_ext_mep.tasks import trajectory_to_trips as trajectory_to_trips
-from ecoscope_workflows_ext_ste.tasks import (
-    combine_deckgl_map_layers as combine_deckgl_map_layers,
-)
 
 from ..params import Params
 
@@ -168,41 +159,6 @@ def main(params: Params):
             include_details=True,
             include_subjectsource_details=True,
             **(params_dict.get("subject_observations") or {}),
-        )
-        .call()
-    )
-
-    include_er_feature = (
-        get_spatial_features.validate()
-        .set_task_instance_id("include_er_feature")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(client=er_client_name, **(params_dict.get("include_er_feature") or {}))
-        .call()
-    )
-
-    er_spatial_layer = (
-        create_spatial_features_layer.validate()
-        .set_task_instance_id("er_spatial_layer")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            geodataframe=include_er_feature,
-            **(params_dict.get("er_spatial_layer") or {}),
         )
         .call()
     )
@@ -517,26 +473,6 @@ def main(params: Params):
         .call()
     )
 
-    combined_bse_layers = (
-        combine_deckgl_map_layers.validate()
-        .set_task_instance_id("combined_bse_layers")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            static_layers=[er_spatial_layer],
-            grouped_layers=trips_layer,
-            **(params_dict.get("combined_bse_layers") or {}),
-        )
-        .call()
-    )
-
     draw_animation = (
         draw_animated_map.validate()
         .set_task_instance_id("draw_animation")
@@ -550,7 +486,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            geo_layers=combined_bse_layers,
+            geo_layers=trips_layer,
             tile_layers=[terrain_layer],
             static=False,
             max_zoom=15,
@@ -616,8 +552,6 @@ def main(params: Params):
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             out_path="animation.mp4",
             fps=30,
-            width=1280,
-            height=720,
             device_scale_factor=1,
             gl="auto",
             workers=1,

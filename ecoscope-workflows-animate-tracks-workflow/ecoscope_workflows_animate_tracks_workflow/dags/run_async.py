@@ -20,12 +20,6 @@ from ecoscope_workflows_core.tasks.skip import (
 )
 from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_df
 from ecoscope_workflows_core.tasks.transformation import map_columns as map_columns
-from ecoscope_workflows_ext_custom.tasks.io import (
-    get_spatial_features as get_spatial_features,
-)
-from ecoscope_workflows_ext_custom.tasks.results import (
-    create_spatial_features_layer as create_spatial_features_layer,
-)
 from ecoscope_workflows_ext_ecoscope.tasks.io import (
     get_subjectgroup_observations as get_subjectgroup_observations,
 )
@@ -58,9 +52,6 @@ from ecoscope_workflows_ext_mep.tasks import (
 )
 from ecoscope_workflows_ext_mep.tasks import render_animation as render_animation
 from ecoscope_workflows_ext_mep.tasks import trajectory_to_trips as trajectory_to_trips
-from ecoscope_workflows_ext_ste.tasks import (
-    combine_deckgl_map_layers as combine_deckgl_map_layers,
-)
 
 from ..params import Params
 
@@ -75,8 +66,6 @@ def main(params: Params):
         "groupers": [],
         "subject_group_var": [],
         "subject_observations": ["er_client_name", "time_range", "subject_group_var"],
-        "include_er_feature": ["er_client_name"],
-        "er_spatial_layer": ["include_er_feature"],
         "subject_reloc": ["subject_observations"],
         "convert_to_trajs": ["subject_reloc"],
         "rename_traj_cols": ["convert_to_trajs"],
@@ -89,9 +78,8 @@ def main(params: Params):
         "normalize_trips": ["trajs_trips"],
         "trips_layer": ["normalize_trips"],
         "animation_settings": [],
-        "combined_bse_layers": ["er_spatial_layer", "trips_layer"],
         "draw_animation": [
-            "combined_bse_layers",
+            "trips_layer",
             "terrain_layer",
             "trips_view_state",
             "animation_settings",
@@ -212,44 +200,6 @@ def main(params: Params):
                 "include_subjectsource_details": True,
             }
             | (params_dict.get("subject_observations") or {}),
-            method="call",
-        ),
-        "include_er_feature": Node(
-            async_task=get_spatial_features.validate()
-            .set_task_instance_id("include_er_feature")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "client": DependsOn("er_client_name"),
-            }
-            | (params_dict.get("include_er_feature") or {}),
-            method="call",
-        ),
-        "er_spatial_layer": Node(
-            async_task=create_spatial_features_layer.validate()
-            .set_task_instance_id("er_spatial_layer")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "geodataframe": DependsOn("include_er_feature"),
-            }
-            | (params_dict.get("er_spatial_layer") or {}),
             method="call",
         ),
         "subject_reloc": Node(
@@ -581,28 +531,6 @@ def main(params: Params):
             | (params_dict.get("animation_settings") or {}),
             method="call",
         ),
-        "combined_bse_layers": Node(
-            async_task=combine_deckgl_map_layers.validate()
-            .set_task_instance_id("combined_bse_layers")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "static_layers": [
-                    DependsOn("er_spatial_layer"),
-                ],
-                "grouped_layers": DependsOn("trips_layer"),
-            }
-            | (params_dict.get("combined_bse_layers") or {}),
-            method="call",
-        ),
         "draw_animation": Node(
             async_task=draw_animated_map.validate()
             .set_task_instance_id("draw_animation")
@@ -617,7 +545,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "geo_layers": DependsOn("combined_bse_layers"),
+                "geo_layers": DependsOn("trips_layer"),
                 "tile_layers": [
                     DependsOn("terrain_layer"),
                 ],
@@ -690,8 +618,6 @@ def main(params: Params):
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
                 "out_path": "animation.mp4",
                 "fps": 30,
-                "width": 1280,
-                "height": 720,
                 "device_scale_factor": 1,
                 "gl": "auto",
                 "workers": 1,
