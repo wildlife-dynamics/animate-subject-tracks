@@ -29,7 +29,7 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-mep
-    version: "0.0.27.*"
+    version: "0.0.28.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
 rjsf-overrides:
@@ -65,7 +65,6 @@ workflow:
     partial:
       groupers: []
 
-  # get relocations:collar voltages for subjects and persist file
   - title: Subject Group
     type: task-group
     description: Choose subject group to generate collar voltage charts and overall speedmap
@@ -81,22 +80,34 @@ workflow:
       filter: clean
       client: ${{ workflow.er_client_name.return }}
       time_range: ${{ workflow.time_range.return }}
-      subject_group_name: ${{ workflow.subject_group_var.return }} # pass this to word doc
+      subject_group_name: ${{ workflow.subject_group_var.return }} 
       raise_on_empty: false
       include_details: true
       include_subjectsource_details: true
 
-  # - name: Include earthranger spatial features 
-  #   id: include_er_feature 
-  #   task: get_spatial_features 
-  #   partial: 
-  #     client: ${{ workflow.er_client_name.return }}
-  
-  # - name: Create spatial features layer 
-  #   id: er_spatial_layer 
-  #   task: create_spatial_features_layer 
-  #   partial:  
-  #     geodataframe: ${{ workflow.include_er_feature.return }}
+  - title: EarthRanger Spatial Features
+    type: task-group
+    description: >-
+      Optionally overlay EarthRanger spatial feature layers (e.g. protected areas, reporting
+      zones) on the animated map. Enable the toggle to turn this on.
+    tasks:
+      - name: null
+        id: er_client_for_spatial_features
+        task: gate_earthranger_client
+        partial:
+          client: ${{ workflow.er_client_name.return }}
+
+      - name: Include earthranger spatial features
+        id: include_er_feature
+        task: get_mep_spatial_features
+        partial:
+          client: ${{ workflow.er_client_for_spatial_features.return }}
+
+      - name: Create spatial features layer
+        id: er_spatial_layer
+        task: create_spatial_features_layer
+        partial:
+          geodataframe: ${{ workflow.include_er_feature.return }}
 
   - name: Transform observations to relocations
     id: subject_reloc
@@ -165,39 +176,49 @@ workflow:
       filename: trajectories
 
   - name: Configure terrain elevation decoder
-    id: terrain_exaggeration 
-    task: create_elevation_decoder 
+    id: terrain_exaggeration
+    task: create_elevation_decoder
     partial:
       r_scaler: 256
       g_scaler: 1.0
-      b_scaler: 0.00390625 #1/256 
+      b_scaler: 0.00390625 #1/256
       offset: -32768.0
 
+  - name: Configure Tilelayers
+    id: custom_basemap_urls
+    task: set_custom_basemap_urls
+
+  - name: Configure basemap
+    id: basemap_option
+    task: set_basemap_option
+    partial:
+      basemap:
+        preset: default
+        elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
+        tile_urls: ${{ workflow.custom_basemap_urls.return }}
+
   - name: Prepare trajectory animation data
-    id: trajs_trips 
+    id: trajs_trips
     task: trajectory_to_trips
     partial:
       trajectory_gdf: ${{ workflow.rename_traj_cols.return }}
-      subject_name_col: subject_name 
+      subject_name_col: subject_name
       subject_hex_col: hex_color
-      terrain: 
-        zoom: 15 
-        offset: 30 
-        cache_dir: null 
+      terrain:
+        zoom: 15
+        offset: 30
+        cache_dir: null
         ground_elevation: 1500
-        elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
-        elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+        basemap: ${{ workflow.basemap_option.return }}
 
-  - name: Create terrain layer 
-    id: terrain_layer 
-    task: create_terrain_layer 
-    partial: 
-      min_zoom: 0 
+  - name: Create terrain layer
+    id: terrain_layer
+    task: create_terrain_layer
+    partial:
+      min_zoom: 0
       max_zoom: 15
-      elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
-      texture: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-      wireframe: false 
-      elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
+      basemap: ${{ workflow.basemap_option.return }}
+      wireframe: false
 
   - name: Calculate map view bounds
     id: trips_view_state
@@ -256,19 +277,27 @@ workflow:
       # head_outline_width: 1.05
       auto_rotate_speed: 0.0
 
-  # - name: Combine spatial layers with grouped layers
-  #   id: combined_bse_layers
-  #   task: combine_deckgl_map_layers
-  #   partial: 
-  #     static_layers: 
-  #       - ${{ workflow.er_spatial_layer.return }}
-  #     grouped_layers: ${{ workflow.trips_layer.return }} 
+  - name: Append optional ER spatial layer
+    id: static_map_layers
+    task: append_optional_layer
+    skipif:
+      conditions: []
+    partial:
+      base_layers: []
+      optional_layer: ${{ workflow.er_spatial_layer.return }}
+
+  - name: Combine spatial layers with grouped layers
+    id: combined_bse_layers
+    task: combine_deckgl_map_layers
+    partial:
+      static_layers: ${{ workflow.static_map_layers.return }}
+      grouped_layers: ${{ workflow.trips_layer.return }}
 
   - name: Draw animated map
     id: draw_animation
     task: draw_animated_map
     partial:
-      geo_layers: ${{ workflow.trips_layer.return }} 
+      geo_layers: ${{ workflow.combined_bse_layers.return }}
       tile_layers:
         - ${{ workflow.terrain_layer.return }}
       static: false

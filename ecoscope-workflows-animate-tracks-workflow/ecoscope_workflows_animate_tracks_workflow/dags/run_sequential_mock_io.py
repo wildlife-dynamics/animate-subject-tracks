@@ -34,12 +34,18 @@ from ecoscope_workflows_core.tasks.results import (
 )
 from ecoscope_workflows_core.tasks.results import gather_dashboard as gather_dashboard
 from ecoscope_workflows_core.tasks.transformation import map_columns as map_columns
+from ecoscope_workflows_ext_custom.tasks.results import (
+    create_spatial_features_layer as create_spatial_features_layer,
+)
 from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df as persist_df
 from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
     process_relocations as process_relocations,
 )
 from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
     relocations_to_trajectory as relocations_to_trajectory,
+)
+from ecoscope_workflows_ext_mep.tasks import (
+    append_optional_layer as append_optional_layer,
 )
 from ecoscope_workflows_ext_mep.tasks import (
     compute_view_state_from_gdf as compute_view_state_from_gdf,
@@ -59,10 +65,23 @@ from ecoscope_workflows_ext_mep.tasks import (
 from ecoscope_workflows_ext_mep.tasks import create_trips_layer as create_trips_layer
 from ecoscope_workflows_ext_mep.tasks import draw_animated_map as draw_animated_map
 from ecoscope_workflows_ext_mep.tasks import (
+    gate_earthranger_client as gate_earthranger_client,
+)
+from ecoscope_workflows_ext_mep.tasks import (
+    get_mep_spatial_features as get_mep_spatial_features,
+)
+from ecoscope_workflows_ext_mep.tasks import (
     normalize_timestamps as normalize_timestamps,
 )
 from ecoscope_workflows_ext_mep.tasks import render_animation as render_animation
+from ecoscope_workflows_ext_mep.tasks import set_basemap_option as set_basemap_option
+from ecoscope_workflows_ext_mep.tasks import (
+    set_custom_basemap_urls as set_custom_basemap_urls,
+)
 from ecoscope_workflows_ext_mep.tasks import trajectory_to_trips as trajectory_to_trips
+from ecoscope_workflows_ext_ste.tasks import (
+    combine_deckgl_map_layers as combine_deckgl_map_layers,
+)
 
 from ..params import Params
 
@@ -173,6 +192,63 @@ def main(params: Params):
             include_details=True,
             include_subjectsource_details=True,
             **(params_dict.get("subject_observations") or {}),
+        )
+        .call()
+    )
+
+    er_client_for_spatial_features = (
+        gate_earthranger_client.validate()
+        .set_task_instance_id("er_client_for_spatial_features")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            client=er_client_name,
+            **(params_dict.get("er_client_for_spatial_features") or {}),
+        )
+        .call()
+    )
+
+    include_er_feature = (
+        get_mep_spatial_features.validate()
+        .set_task_instance_id("include_er_feature")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            client=er_client_for_spatial_features,
+            **(params_dict.get("include_er_feature") or {}),
+        )
+        .call()
+    )
+
+    er_spatial_layer = (
+        create_spatial_features_layer.validate()
+        .set_task_instance_id("er_spatial_layer")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            geodataframe=include_er_feature,
+            **(params_dict.get("er_spatial_layer") or {}),
         )
         .call()
     )
@@ -328,6 +404,45 @@ def main(params: Params):
         .call()
     )
 
+    custom_basemap_urls = (
+        set_custom_basemap_urls.validate()
+        .set_task_instance_id("custom_basemap_urls")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params_dict.get("custom_basemap_urls") or {}))
+        .call()
+    )
+
+    basemap_option = (
+        set_basemap_option.validate()
+        .set_task_instance_id("basemap_option")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            basemap={
+                "preset": "default",
+                "elevation_decoder": terrain_exaggeration,
+                "tile_urls": custom_basemap_urls,
+            },
+            **(params_dict.get("basemap_option") or {}),
+        )
+        .call()
+    )
+
     trajs_trips = (
         trajectory_to_trips.validate()
         .set_task_instance_id("trajs_trips")
@@ -349,8 +464,7 @@ def main(params: Params):
                 "offset": 30,
                 "cache_dir": None,
                 "ground_elevation": 1500,
-                "elevation_decoder": terrain_exaggeration,
-                "elevation_data": "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
+                "basemap": basemap_option,
             },
             **(params_dict.get("trajs_trips") or {}),
         )
@@ -372,10 +486,8 @@ def main(params: Params):
         .partial(
             min_zoom=0,
             max_zoom=15,
-            elevation_data="https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
-            texture="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            basemap=basemap_option,
             wireframe=False,
-            elevation_decoder=terrain_exaggeration,
             **(params_dict.get("terrain_layer") or {}),
         )
         .call()
@@ -487,6 +599,43 @@ def main(params: Params):
         .call()
     )
 
+    static_map_layers = (
+        append_optional_layer.validate()
+        .set_task_instance_id("static_map_layers")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[],
+            unpack_depth=1,
+        )
+        .partial(
+            base_layers=[],
+            optional_layer=er_spatial_layer,
+            **(params_dict.get("static_map_layers") or {}),
+        )
+        .call()
+    )
+
+    combined_bse_layers = (
+        combine_deckgl_map_layers.validate()
+        .set_task_instance_id("combined_bse_layers")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            static_layers=static_map_layers,
+            grouped_layers=trips_layer,
+            **(params_dict.get("combined_bse_layers") or {}),
+        )
+        .call()
+    )
+
     draw_animation = (
         draw_animated_map.validate()
         .set_task_instance_id("draw_animation")
@@ -500,7 +649,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            geo_layers=trips_layer,
+            geo_layers=combined_bse_layers,
             tile_layers=[terrain_layer],
             static=False,
             max_zoom=15,

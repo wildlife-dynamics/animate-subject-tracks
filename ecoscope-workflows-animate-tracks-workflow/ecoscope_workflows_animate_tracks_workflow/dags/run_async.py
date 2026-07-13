@@ -20,6 +20,9 @@ from ecoscope_workflows_core.tasks.skip import (
 )
 from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_df
 from ecoscope_workflows_core.tasks.transformation import map_columns as map_columns
+from ecoscope_workflows_ext_custom.tasks.results import (
+    create_spatial_features_layer as create_spatial_features_layer,
+)
 from ecoscope_workflows_ext_ecoscope.tasks.io import (
     get_subjectgroup_observations as get_subjectgroup_observations,
 )
@@ -29,6 +32,9 @@ from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
 )
 from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
     relocations_to_trajectory as relocations_to_trajectory,
+)
+from ecoscope_workflows_ext_mep.tasks import (
+    append_optional_layer as append_optional_layer,
 )
 from ecoscope_workflows_ext_mep.tasks import (
     compute_view_state_from_gdf as compute_view_state_from_gdf,
@@ -48,10 +54,23 @@ from ecoscope_workflows_ext_mep.tasks import (
 from ecoscope_workflows_ext_mep.tasks import create_trips_layer as create_trips_layer
 from ecoscope_workflows_ext_mep.tasks import draw_animated_map as draw_animated_map
 from ecoscope_workflows_ext_mep.tasks import (
+    gate_earthranger_client as gate_earthranger_client,
+)
+from ecoscope_workflows_ext_mep.tasks import (
+    get_mep_spatial_features as get_mep_spatial_features,
+)
+from ecoscope_workflows_ext_mep.tasks import (
     normalize_timestamps as normalize_timestamps,
 )
 from ecoscope_workflows_ext_mep.tasks import render_animation as render_animation
+from ecoscope_workflows_ext_mep.tasks import set_basemap_option as set_basemap_option
+from ecoscope_workflows_ext_mep.tasks import (
+    set_custom_basemap_urls as set_custom_basemap_urls,
+)
 from ecoscope_workflows_ext_mep.tasks import trajectory_to_trips as trajectory_to_trips
+from ecoscope_workflows_ext_ste.tasks import (
+    combine_deckgl_map_layers as combine_deckgl_map_layers,
+)
 
 from ..params import Params
 
@@ -66,20 +85,27 @@ def main(params: Params):
         "groupers": [],
         "subject_group_var": [],
         "subject_observations": ["er_client_name", "time_range", "subject_group_var"],
+        "er_client_for_spatial_features": ["er_client_name"],
+        "include_er_feature": ["er_client_for_spatial_features"],
+        "er_spatial_layer": ["include_er_feature"],
         "subject_reloc": ["subject_observations"],
         "convert_to_trajs": ["subject_reloc"],
         "rename_traj_cols": ["convert_to_trajs"],
         "persist_relocs_geoparquet": ["subject_reloc"],
         "persist_trajs_geoparquet": ["rename_traj_cols"],
         "terrain_exaggeration": [],
-        "trajs_trips": ["rename_traj_cols", "terrain_exaggeration"],
-        "terrain_layer": ["terrain_exaggeration"],
+        "custom_basemap_urls": [],
+        "basemap_option": ["terrain_exaggeration", "custom_basemap_urls"],
+        "trajs_trips": ["rename_traj_cols", "basemap_option"],
+        "terrain_layer": ["basemap_option"],
         "trips_view_state": ["trajs_trips"],
         "normalize_trips": ["trajs_trips"],
         "trips_layer": ["normalize_trips"],
         "animation_settings": [],
+        "static_map_layers": ["er_spatial_layer"],
+        "combined_bse_layers": ["static_map_layers", "trips_layer"],
         "draw_animation": [
-            "trips_layer",
+            "combined_bse_layers",
             "terrain_layer",
             "trips_view_state",
             "animation_settings",
@@ -200,6 +226,63 @@ def main(params: Params):
                 "include_subjectsource_details": True,
             }
             | (params_dict.get("subject_observations") or {}),
+            method="call",
+        ),
+        "er_client_for_spatial_features": Node(
+            async_task=gate_earthranger_client.validate()
+            .set_task_instance_id("er_client_for_spatial_features")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "client": DependsOn("er_client_name"),
+            }
+            | (params_dict.get("er_client_for_spatial_features") or {}),
+            method="call",
+        ),
+        "include_er_feature": Node(
+            async_task=get_mep_spatial_features.validate()
+            .set_task_instance_id("include_er_feature")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "client": DependsOn("er_client_for_spatial_features"),
+            }
+            | (params_dict.get("include_er_feature") or {}),
+            method="call",
+        ),
+        "er_spatial_layer": Node(
+            async_task=create_spatial_features_layer.validate()
+            .set_task_instance_id("er_spatial_layer")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "geodataframe": DependsOn("include_er_feature"),
+            }
+            | (params_dict.get("er_spatial_layer") or {}),
             method="call",
         ),
         "subject_reloc": Node(
@@ -361,6 +444,45 @@ def main(params: Params):
             | (params_dict.get("terrain_exaggeration") or {}),
             method="call",
         ),
+        "custom_basemap_urls": Node(
+            async_task=set_custom_basemap_urls.validate()
+            .set_task_instance_id("custom_basemap_urls")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial=(params_dict.get("custom_basemap_urls") or {}),
+            method="call",
+        ),
+        "basemap_option": Node(
+            async_task=set_basemap_option.validate()
+            .set_task_instance_id("basemap_option")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "basemap": {
+                    "preset": "default",
+                    "elevation_decoder": DependsOn("terrain_exaggeration"),
+                    "tile_urls": DependsOn("custom_basemap_urls"),
+                },
+            }
+            | (params_dict.get("basemap_option") or {}),
+            method="call",
+        ),
         "trajs_trips": Node(
             async_task=trajectory_to_trips.validate()
             .set_task_instance_id("trajs_trips")
@@ -383,8 +505,7 @@ def main(params: Params):
                     "offset": 30,
                     "cache_dir": None,
                     "ground_elevation": 1500,
-                    "elevation_decoder": DependsOn("terrain_exaggeration"),
-                    "elevation_data": "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
+                    "basemap": DependsOn("basemap_option"),
                 },
             }
             | (params_dict.get("trajs_trips") or {}),
@@ -406,10 +527,8 @@ def main(params: Params):
             partial={
                 "min_zoom": 0,
                 "max_zoom": 15,
-                "elevation_data": "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
-                "texture": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                "basemap": DependsOn("basemap_option"),
                 "wireframe": False,
-                "elevation_decoder": DependsOn("terrain_exaggeration"),
             }
             | (params_dict.get("terrain_layer") or {}),
             method="call",
@@ -531,6 +650,42 @@ def main(params: Params):
             | (params_dict.get("animation_settings") or {}),
             method="call",
         ),
+        "static_map_layers": Node(
+            async_task=append_optional_layer.validate()
+            .set_task_instance_id("static_map_layers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "optional_layer": DependsOn("er_spatial_layer"),
+            }
+            | (params_dict.get("static_map_layers") or {}),
+            method="call",
+        ),
+        "combined_bse_layers": Node(
+            async_task=combine_deckgl_map_layers.validate()
+            .set_task_instance_id("combined_bse_layers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "static_layers": DependsOn("static_map_layers"),
+                "grouped_layers": DependsOn("trips_layer"),
+            }
+            | (params_dict.get("combined_bse_layers") or {}),
+            method="call",
+        ),
         "draw_animation": Node(
             async_task=draw_animated_map.validate()
             .set_task_instance_id("draw_animation")
@@ -545,7 +700,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "geo_layers": DependsOn("trips_layer"),
+                "geo_layers": DependsOn("combined_bse_layers"),
                 "tile_layers": [
                     DependsOn("terrain_layer"),
                 ],

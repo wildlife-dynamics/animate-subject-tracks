@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Literal, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from pydantic import (
     BaseModel,
@@ -15,6 +15,7 @@ from pydantic import (
     PositiveInt,
     confloat,
     conint,
+    constr,
 )
 
 
@@ -33,6 +34,17 @@ class SubjectGroupVar(BaseModel):
     var: str = Field(..., title="")
 
 
+class ErClientForSpatialFeatures(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    enabled: Optional[bool] = Field(
+        False,
+        description="Include this optional EarthRanger-dependent branch of the workflow. When off, the client is replaced with a skip sentinel so this step (and anything built from its return value) is skipped entirely.",
+        title="Enabled",
+    )
+
+
 class TerrainExaggeration(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -41,6 +53,22 @@ class TerrainExaggeration(BaseModel):
         1.0,
         description="Vertical exaggeration factor. 1.0 = true scale, 2.0 = 2x heights.",
         title="Exaggeration",
+    )
+
+
+class CustomBasemapUrls(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    elevation_data: Optional[str] = Field(
+        "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
+        description="URL template (or single image) for the RGB-encoded elevation tiles.",
+        title="Elevation Data",
+    )
+    texture: Optional[str] = Field(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        description="URL template for tiles draped over the terrain.",
+        title="Texture",
     )
 
 
@@ -87,6 +115,79 @@ class TimezoneInfo(BaseModel):
     tzCode: str = Field(..., title="Tzcode")
     name: str = Field(..., title="Name")
     utc: str = Field(..., title="Utc")
+
+
+class Kind(str, Enum):
+    feature_id = "feature_id"
+
+
+class Kind1(str, Enum):
+    feature_set = "feature_set"
+
+
+class MepFeatureSetQuery(BaseModel):
+    kind: Literal["feature_set"] = Field("feature_set", title="Kind")
+    featureset_name: Optional[str] = Field(
+        "",
+        description="Display name of the featureset exactly as it appears in EarthRanger e.g. 'Boundaries'. Leave blank to load nothing (e.g. while this branch of the workflow is disabled).",
+        title="Featureset Name",
+    )
+
+
+class Kind2(str, Enum):
+    feature_type = "feature_type"
+
+
+class MepLineStyle(BaseModel):
+    color: Optional[List[str]] = Field(
+        [],
+        description="Line hex colour(s) e.g. ['#E63946']. Cycles across rows.",
+        title="Color",
+    )
+    opacity: Optional[confloat(ge=0.0, le=1.0)] = Field(
+        1.0, description="Line opacity 0-1.", title="Opacity"
+    )
+    width: Optional[float] = Field(
+        2.0, description="Line width in pixels.", title="Width"
+    )
+
+
+class Kind3(str, Enum):
+    none = "none"
+
+
+class MepNoQuery(BaseModel):
+    kind: Literal["none"] = Field("none", title="Kind")
+
+
+class MepPointStyle(BaseModel):
+    color: Optional[List[str]] = Field(
+        [],
+        description="Fill hex colour(s). For SVG icons this tints the marker. Cycles across rows.",
+        title="Color",
+    )
+    size: Optional[float] = Field(
+        None,
+        description="Point radius / icon size in pixels. Leave empty to use the size set in EarthRanger.",
+        title="Size",
+    )
+
+
+class MepPolygonStyle(BaseModel):
+    fill_color: Optional[List[str]] = Field(
+        [],
+        description="Fill hex colour(s) e.g. ['#FFA500']. Cycles across rows.",
+        title="Fill Color",
+    )
+    stroke_color: Optional[str] = Field(
+        None, description="Border hex colour.", title="Stroke Color"
+    )
+    fill_opacity: Optional[confloat(ge=0.0, le=1.0)] = Field(
+        1.0, description="Fill opacity 0-1.", title="Fill Opacity"
+    )
+    stroke_width: Optional[float] = Field(
+        2.0, description="Border width in pixels.", title="Stroke Width"
+    )
 
 
 class TrajectorySegmentFilter(BaseModel):
@@ -367,6 +468,27 @@ class DrawAnimation(BaseModel):
     )
 
 
+class MepLayerStyle(BaseModel):
+    polygon: Optional[List[MepPolygonStyle]] = Field(
+        [],
+        description="Polygon styling. Add one entry to override ER native colours.",
+        max_length=1,
+        title="Polygon",
+    )
+    line: Optional[List[MepLineStyle]] = Field(
+        [],
+        description="Line styling. Add one entry to override ER native colours.",
+        max_length=1,
+        title="Line",
+    )
+    point: Optional[List[MepPointStyle]] = Field(
+        [],
+        description="Point and icon marker styling. Add one entry to override ER native colours.",
+        max_length=1,
+        title="Point",
+    )
+
+
 class KeyframesCamera(BaseModel):
     type_: Literal["keyframes"] = Field("keyframes", title="Type ")
     source: Optional[Union[KeyframesFromSubject, KeyframesFromFile]] = Field(
@@ -429,6 +551,68 @@ class CreateAnimation(BaseModel):
     )
 
 
+class MepFeatureIdQuery(BaseModel):
+    kind: Literal["feature_id"] = Field("feature_id", title="Kind")
+    feature_id: str = Field(
+        ...,
+        description="UUID of a specific spatial feature available on EarthRanger.",
+        title="Feature Id",
+    )
+    style: Optional[List[MepLayerStyle]] = Field(
+        [],
+        description="Optional: Override how EarthRanger spatial features are rendered on the map. If not specified, features will use their native EarthRanger colours and styling.",
+        max_length=1,
+        title="Style",
+    )
+
+
+class MepFeatureTypeQuery(BaseModel):
+    kind: Literal["feature_type"] = Field("feature_type", title="Kind")
+    feature_type: constr(min_length=1) = Field(
+        ...,
+        description="Feature type name as shown in EarthRanger e.g. 'Conservancy'.",
+        title="Feature Type",
+    )
+    style: Optional[List[MepLayerStyle]] = Field(
+        [],
+        description="Optional: Override how EarthRanger spatial features are rendered on the map. If not specified, features will use their native EarthRanger colours and styling.",
+        max_length=1,
+        title="Style",
+    )
+
+
+class MepEarthRangerSource(BaseModel):
+    query: Optional[
+        Union[MepNoQuery, MepFeatureSetQuery, MepFeatureTypeQuery, MepFeatureIdQuery]
+    ] = Field(
+        default_factory=lambda: MepNoQuery.model_validate({"kind": "none"}),
+        discriminator="kind",
+        title="Query",
+    )
+
+
+class IncludeErFeature(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    source: Optional[MepEarthRangerSource] = Field(
+        default_factory=lambda: MepEarthRangerSource.model_validate(
+            {"query": {"kind": "none"}}
+        ),
+        title="Source",
+    )
+    group_by: Optional[str] = Field(
+        "type_name",
+        description="Column used to group features in the map legend e.g. 'Feature Type' shows one legend entry per feature type.",
+        title="Group By",
+    )
+    legend_title: Optional[str] = Field(
+        "",
+        description="Label shown in the map legend e.g. 'Park Boundary'.",
+        title="Legend Title",
+    )
+
+
 class Params(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -447,11 +631,20 @@ class Params(BaseModel):
     subject_group_var: Optional[SubjectGroupVar] = Field(
         None, title="Set subject group name"
     )
+    er_client_for_spatial_features: Optional[ErClientForSpatialFeatures] = Field(
+        None, title=""
+    )
+    include_er_feature: Optional[IncludeErFeature] = Field(
+        None, title="Include earthranger spatial features"
+    )
     convert_to_trajs: Optional[ConvertToTrajs] = Field(
         None, title="Convert relocations to trajectories"
     )
     terrain_exaggeration: Optional[TerrainExaggeration] = Field(
         None, title="Configure terrain elevation decoder"
+    )
+    custom_basemap_urls: Optional[CustomBasemapUrls] = Field(
+        None, title="Configure Tilelayers"
     )
     trips_view_state: Optional[TripsViewState] = Field(
         None, title="Calculate map view bounds"
