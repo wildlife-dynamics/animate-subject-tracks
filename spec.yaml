@@ -13,7 +13,7 @@ requirements:
     channel: conda-forge
 
   - name: ecoscope-workflows-ext-custom
-    version: "0.0.56.*"
+    version: "0.0.58.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-ste
