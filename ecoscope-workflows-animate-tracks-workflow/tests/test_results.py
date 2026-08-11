@@ -2,7 +2,8 @@
 
 import asyncio
 import json
-from typing import Any, Coroutine
+from collections.abc import Coroutine
+from typing import Any
 
 import pytest
 import pytest_check.context_manager

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import List, Literal, Optional, Union
+from typing import Literal
 
 from pydantic import (
     BaseModel,
@@ -24,7 +24,7 @@ class WorkflowDetails(BaseModel):
         extra="forbid",
     )
     name: str = Field(..., title="Workflow Name")
-    description: Optional[str] = Field("", title="Workflow Description")
+    description: str | None = Field("", title="Workflow Description")
 
 
 class SubjectGroupVar(BaseModel):
@@ -35,7 +35,7 @@ class SubjectGroupVar(BaseModel):
 
 
 class SubjectGroup(BaseModel):
-    subject_group_var: Optional[SubjectGroupVar] = Field(
+    subject_group_var: SubjectGroupVar | None = Field(
         None, title="Set subject group name"
     )
 
@@ -44,7 +44,7 @@ class ErClientForSpatialFeatures(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    enabled: Optional[bool] = Field(
+    enabled: bool | None = Field(
         False,
         description="Include this optional EarthRanger-dependent branch of the workflow. When off, the client is replaced with a skip sentinel so this step (and anything built from its return value) is skipped entirely.",
         title="Enabled",
@@ -55,7 +55,7 @@ class TerrainExaggeration(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    exaggeration: Optional[PositiveFloat] = Field(
+    exaggeration: PositiveFloat | None = Field(
         1.0,
         description="Vertical exaggeration factor. 1.0 = true scale, 2.0 = 2x heights.",
         title="Exaggeration",
@@ -66,12 +66,12 @@ class CustomBasemapUrls(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    elevation_data: Optional[str] = Field(
+    elevation_data: str | None = Field(
         "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
         description="URL template (or single image) for the RGB-encoded elevation tiles.",
         title="Elevation Data",
     )
-    texture: Optional[str] = Field(
+    texture: str | None = Field(
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         description="URL template for tiles draped over the terrain.",
         title="Texture",
@@ -82,12 +82,12 @@ class TripsViewState(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    pitch: Optional[conint(ge=0, le=90)] = Field(
+    pitch: conint(ge=0, le=90) | None = Field(
         0,
         description="Camera tilt in degrees (0 = top-down, 90 = horizon). 45° gives a natural 3-D perspective over terrain.",
         title="Pitch",
     )
-    bearing: Optional[conint(ge=-180, le=180)] = Field(
+    bearing: conint(ge=-180, le=180) | None = Field(
         0,
         description="Camera compass heading in degrees (0 = north, 90 = east, -90 = west). Rotates the map so a different cardinal direction faces up.",
         title="Bearing",
@@ -98,9 +98,9 @@ class AnimationSettings(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    animation_speed: Optional[confloat(ge=0.0)] = Field(1000, title="Animation Speed")
-    head_radius: Optional[PositiveFloat] = Field(2.0, title="Head Radius")
-    head_outline_width: Optional[confloat(ge=0.0)] = Field(
+    animation_speed: confloat(ge=0.0) | None = Field(1000, title="Animation Speed")
+    head_radius: PositiveFloat | None = Field(2.0, title="Head Radius")
+    head_outline_width: confloat(ge=0.0) | None = Field(
         1.5, title="Head Outline Width"
     )
 
@@ -109,7 +109,7 @@ class VideoOutputPath(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    enabled: Optional[bool] = Field(False, title="Enabled")
+    enabled: bool | None = Field(False, title="Enabled")
 
 
 class EarthRangerConnection(BaseModel):
@@ -133,7 +133,7 @@ class Kind1(str, Enum):
 
 class MepFeatureSetQuery(BaseModel):
     kind: Literal["feature_set"] = Field("feature_set", title="Kind")
-    featureset_name: Optional[str] = Field(
+    featureset_name: str | None = Field(
         "",
         description="Display name of the featureset exactly as it appears in EarthRanger e.g. 'Boundaries'. Leave blank to load nothing (e.g. while this branch of the workflow is disabled).",
         title="Featureset Name",
@@ -145,15 +145,15 @@ class Kind2(str, Enum):
 
 
 class MepLineStyle(BaseModel):
-    color: Optional[List[str]] = Field(
+    color: list[str] | None = Field(
         [],
         description="Line hex colour(s) e.g. ['#E63946']. Cycles across rows.",
         title="Color",
     )
-    opacity: Optional[confloat(ge=0.0, le=1.0)] = Field(
+    opacity: confloat(ge=0.0, le=1.0) | None = Field(
         1.0, description="Line opacity 0-1.", title="Opacity"
     )
-    width: Optional[float] = Field(
+    width: float | None = Field(
         2.0, description="Line width in pixels.", title="Width"
     )
 
@@ -167,12 +167,12 @@ class MepNoQuery(BaseModel):
 
 
 class MepPointStyle(BaseModel):
-    color: Optional[List[str]] = Field(
+    color: list[str] | None = Field(
         [],
         description="Fill hex colour(s). For SVG icons this tints the marker. Cycles across rows.",
         title="Color",
     )
-    size: Optional[float] = Field(
+    size: float | None = Field(
         None,
         description="Point radius / icon size in pixels. Leave empty to use the size set in EarthRanger.",
         title="Size",
@@ -180,105 +180,105 @@ class MepPointStyle(BaseModel):
 
 
 class MepPolygonStyle(BaseModel):
-    fill_color: Optional[List[str]] = Field(
+    fill_color: list[str] | None = Field(
         [],
         description="Fill hex colour(s) e.g. ['#FFA500']. Cycles across rows.",
         title="Fill Color",
     )
-    stroke_color: Optional[str] = Field(
+    stroke_color: str | None = Field(
         None, description="Border hex colour.", title="Stroke Color"
     )
-    fill_opacity: Optional[confloat(ge=0.0, le=1.0)] = Field(
+    fill_opacity: confloat(ge=0.0, le=1.0) | None = Field(
         1.0, description="Fill opacity 0-1.", title="Fill Opacity"
     )
-    stroke_width: Optional[float] = Field(
+    stroke_width: float | None = Field(
         2.0, description="Border width in pixels.", title="Stroke Width"
     )
 
 
 class TrajectorySegmentFilter(BaseModel):
-    min_length_meters: Optional[confloat(ge=0.001)] = Field(
+    min_length_meters: confloat(ge=0.001) | None = Field(
         0.001, title="Minimum Segment Length (Meters)"
     )
-    max_length_meters: Optional[confloat(gt=0.001)] = Field(
+    max_length_meters: confloat(gt=0.001) | None = Field(
         100000, title="Maximum Segment Length (Meters)"
     )
-    min_time_secs: Optional[confloat(ge=1.0)] = Field(
+    min_time_secs: confloat(ge=1.0) | None = Field(
         1, title="Minimum Segment Duration (Seconds)"
     )
-    max_time_secs: Optional[confloat(gt=1.0)] = Field(
+    max_time_secs: confloat(gt=1.0) | None = Field(
         172800, title="Maximum Segment Duration (Seconds)"
     )
-    min_speed_kmhr: Optional[confloat(gt=0.001)] = Field(
+    min_speed_kmhr: confloat(gt=0.001) | None = Field(
         0.01, title="Minimum Segment Speed (Kilometers per Hour)"
     )
-    max_speed_kmhr: Optional[confloat(gt=0.001)] = Field(
+    max_speed_kmhr: confloat(gt=0.001) | None = Field(
         500, title="Maximum Segment Speed (Kilometers per Hour)"
     )
 
 
 class ScenegraphLayerDefinition(BaseModel):
-    enabled: Optional[bool] = Field(
+    enabled: bool | None = Field(
         False,
         description="Enable the 3D head model. When off, subjects render as flat dots.",
         title="Enabled",
     )
-    glb: Optional[str] = Field(
+    glb: str | None = Field(
         "https://raw.githubusercontent.com/wildlife-dynamics/animate_subject_tracks/main/african_bush_elephant.glb",
         description="GLB source: an http(s) URL, a data: URI, or a local file path. None -> bundled default model (elephant).",
         title="Glb",
     )
-    size_scale: Optional[float] = Field(
+    size_scale: float | None = Field(
         50.0,
         description="ScenegraphLayer sizeScale. Tune to your scene.",
         title="Size Scale",
     )
-    size_min_pixels: Optional[float] = Field(
+    size_min_pixels: float | None = Field(
         12.0,
         description="Clamp the on-screen model to at least this many pixels so it stays visible when zoomed out.",
         title="Size Min Pixels",
     )
-    size_max_pixels: Optional[float] = Field(
+    size_max_pixels: float | None = Field(
         75.0,
         description="Optional upper clamp on the model's on-screen size in pixels.",
         title="Size Max Pixels",
     )
-    face_heading: Optional[bool] = Field(
+    face_heading: bool | None = Field(
         True,
         description="Rotate the model to face its direction of travel.",
         title="Face Heading",
     )
-    yaw_offset: Optional[float] = Field(
+    yaw_offset: float | None = Field(
         0.0,
         description="Degrees added to the computed heading so the model's nose aligns with travel. Model-dependent; tweak if your model faces sideways.",
         title="Yaw Offset",
     )
-    model_pitch: Optional[float] = Field(
+    model_pitch: float | None = Field(
         0.0,
         description="Tilt of the MODEL itself (deg), independent of the camera. Use to correct a model authored nose-up/down; NOT the view pitch.",
         title="Model Pitch",
     )
-    model_roll: Optional[float] = Field(
+    model_roll: float | None = Field(
         90.0,
         description="Bank of the MODEL itself (deg), independent of the camera.",
         title="Model Roll",
     )
-    smooth_samples: Optional[int] = Field(
+    smooth_samples: int | None = Field(
         2,
         description="Heading/slope smoothing window in track fixes (+/- N). Higher = smoother orientation but more lag; 0 = raw single segment.",
         title="Smooth Samples",
     )
-    terrain_pitch: Optional[bool] = Field(
+    terrain_pitch: bool | None = Field(
         False,
         description="Tilt the model to the terrain slope (from each fix's z) so it noses up on climbs / down on descents. OFF by default -> stays upright; enable only for steady, climbing tracks (it can tip near-stationary subjects).",
         title="Terrain Pitch",
     )
-    terrain_pitch_scale: Optional[float] = Field(
+    terrain_pitch_scale: float | None = Field(
         1.0,
         description="Sign/strength of terrain pitch. Set -1.0 to flip if the model tilts the wrong way; <1 to soften. (Tilt is also capped at +/-20deg.)",
         title="Terrain Pitch Scale",
     )
-    use_track_color: Optional[bool] = Field(
+    use_track_color: bool | None = Field(
         True,
         description="Colour the model with each subject's track colour. False -> use `tint` (or the model's own materials). Note: the colour multiplies the model's material, so it reads truest with a light/neutral glb and flat lighting (pbr_lighting=False).",
         title="Use Track Color",
@@ -299,21 +299,21 @@ class Preset(str, Enum):
 
 class CustomResolution(BaseModel):
     preset: Literal["custom"] = Field("custom", title="Resolution")
-    width: Optional[PositiveInt] = Field(
+    width: PositiveInt | None = Field(
         1280, description="Custom video width in pixels.", title="Width"
     )
-    height: Optional[PositiveInt] = Field(
+    height: PositiveInt | None = Field(
         720, description="Custom video height in pixels.", title="Height"
     )
 
 
 class DurationConfig(BaseModel):
-    auto: Optional[bool] = Field(
+    auto: bool | None = Field(
         True,
         description="Match the animation's own playback length. Uncheck to set a fixed duration.",
         title="Auto",
     )
-    seconds: Optional[float] = Field(
+    seconds: float | None = Field(
         75.0, description="Video duration in seconds.", title="Seconds"
     )
 
@@ -358,7 +358,7 @@ class Type5(str, Enum):
 
 class KeyframesFromFile(BaseModel):
     type_: Literal["file"] = Field("file", title="Type ")
-    keyframes_file: Optional[str] = Field(
+    keyframes_file: str | None = Field(
         None,
         description="Path to an uploaded keyframe file: a .json list of {lon, lat, t?, zoom?, pitch?, bearing?} objects, a .geojson of Point features (extras read from properties), or a .csv/.tsv with lon/lat columns.",
         title="Keyframes File",
@@ -371,7 +371,7 @@ class Type6(str, Enum):
 
 class KeyframesFromSubject(BaseModel):
     type_: Literal["subject"] = Field("subject", title="Type ")
-    subject: Optional[str] = Field(
+    subject: str | None = Field(
         None,
         description="Which subject to follow -- a value from the 'name' (or 'groupby_col') column, a positional index (as digits, e.g. '2'), 'all' for the group's mean position, or empty for the longest-running track.",
         title="Subject",
@@ -393,7 +393,7 @@ class Preset1(str, Enum):
 
 
 class PresetResolution(BaseModel):
-    preset: Optional[Preset1] = Field(
+    preset: Preset1 | None = Field(
         "720p", description="Common output video resolution preset.", title="Resolution"
     )
 
@@ -421,8 +421,8 @@ class TimeRange(BaseModel):
     )
     since: datetime = Field(..., description="The start time", title="Since")
     until: datetime = Field(..., description="The end time", title="Until")
-    timezone: Optional[TimezoneInfo] = Field(None, title="Timezone")
-    time_format: Optional[str] = Field(
+    timezone: TimezoneInfo | None = Field(None, title="Timezone")
+    time_format: str | None = Field(
         "%d %b %Y %H:%M:%S", description="The time format", title="Time Format"
     )
 
@@ -431,7 +431,7 @@ class ConvertToTrajs(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    trajectory_segment_filter: Optional[TrajectorySegmentFilter] = Field(
+    trajectory_segment_filter: TrajectorySegmentFilter | None = Field(
         default_factory=lambda: TrajectorySegmentFilter.model_validate(
             {
                 "min_length_meters": 0.001,
@@ -451,7 +451,7 @@ class DrawAnimation(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    head_layer: Optional[ScenegraphLayerDefinition] = Field(
+    head_layer: ScenegraphLayerDefinition | None = Field(
         default_factory=lambda: ScenegraphLayerDefinition.model_validate(
             {
                 "enabled": False,
@@ -475,19 +475,19 @@ class DrawAnimation(BaseModel):
 
 
 class MepLayerStyle(BaseModel):
-    polygon: Optional[List[MepPolygonStyle]] = Field(
+    polygon: list[MepPolygonStyle] | None = Field(
         [],
         description="Polygon styling. Add one entry to override ER native colours.",
         max_length=1,
         title="Polygon",
     )
-    line: Optional[List[MepLineStyle]] = Field(
+    line: list[MepLineStyle] | None = Field(
         [],
         description="Line styling. Add one entry to override ER native colours.",
         max_length=1,
         title="Line",
     )
-    point: Optional[List[MepPointStyle]] = Field(
+    point: list[MepPointStyle] | None = Field(
         [],
         description="Point and icon marker styling. Add one entry to override ER native colours.",
         max_length=1,
@@ -497,7 +497,7 @@ class MepLayerStyle(BaseModel):
 
 class KeyframesCamera(BaseModel):
     type_: Literal["keyframes"] = Field("keyframes", title="Type ")
-    source: Optional[Union[KeyframesFromSubject, KeyframesFromFile]] = Field(
+    source: KeyframesFromSubject | KeyframesFromFile | None = Field(
         default_factory=lambda: KeyframesFromSubject.model_validate(
             {"type_": "subject", "subject": None}
         ),
@@ -505,22 +505,22 @@ class KeyframesCamera(BaseModel):
         discriminator="type_",
         title="Source",
     )
-    keyframe_easing: Optional[KeyframeEasing] = Field(
+    keyframe_easing: KeyframeEasing | None = Field(
         "smooth",
         description="How the camera moves between keyframes: 'smooth' eases in/out of each waypoint, 'linear' moves at constant speed, 'spline' curves through waypoints (Catmull-Rom) without pausing at them.",
         title="Keyframe Easing",
     )
-    zoom: Optional[float] = Field(
+    zoom: float | None = Field(
         12,
         description="Zoom applied to every auto-derived keyframe. None -> the scene's initial zoom. Not user-configurable; set via a workflow's spec.yaml if a non-default value is needed.",
         title="Zoom",
     )
-    pitch: Optional[float] = Field(
+    pitch: float | None = Field(
         45,
         description="Pitch applied to every auto-derived keyframe. None -> the scene's initial pitch. Not user-configurable; set via a workflow's spec.yaml if a non-default value is needed.",
         title="Pitch",
     )
-    bearing: Optional[float] = Field(
+    bearing: float | None = Field(
         0,
         description="Bearing applied to every auto-derived keyframe. None -> the scene's initial bearing. Not user-configurable; set via a workflow's spec.yaml if a non-default value is needed.",
         title="Bearing",
@@ -531,37 +531,27 @@ class CreateAnimation(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    camera: Optional[
-        Union[
-            StaticCamera,
-            FollowCamera,
-            Follow3DCamera,
-            OrbitCamera,
-            FitCamera,
-            CinematicCamera,
-            KeyframesCamera,
-        ]
-    ] = Field(
+    camera: StaticCamera | FollowCamera | Follow3DCamera | OrbitCamera | FitCamera | CinematicCamera | KeyframesCamera | None = Field(
         default_factory=lambda: StaticCamera.model_validate({"type_": "static"}),
         title="Camera",
     )
-    duration: Optional[DurationConfig] = Field(
+    duration: DurationConfig | None = Field(
         default_factory=lambda: DurationConfig.model_validate(
             {"auto": True, "seconds": 75.0}
         ),
         title="Duration",
     )
-    resolution: Optional[Union[PresetResolution, CustomResolution]] = Field(
+    resolution: PresetResolution | CustomResolution | None = Field(
         default_factory=lambda: PresetResolution.model_validate({"preset": "720p"}),
         title="Resolution",
     )
 
 
 class VideoCreation(BaseModel):
-    video_output_path: Optional[VideoOutputPath] = Field(
+    video_output_path: VideoOutputPath | None = Field(
         None, title="Configure video export"
     )
-    create_animation: Optional[CreateAnimation] = Field(
+    create_animation: CreateAnimation | None = Field(
         None, title="Render animation video"
     )
 
@@ -573,7 +563,7 @@ class MepFeatureIdQuery(BaseModel):
         description="UUID of a specific spatial feature available on EarthRanger.",
         title="Feature Id",
     )
-    style: Optional[List[MepLayerStyle]] = Field(
+    style: list[MepLayerStyle] | None = Field(
         [],
         description="Optional: Override how EarthRanger spatial features are rendered on the map. If not specified, features will use their native EarthRanger colours and styling.",
         max_length=1,
@@ -588,7 +578,7 @@ class MepFeatureTypeQuery(BaseModel):
         description="Feature type name as shown in EarthRanger e.g. 'Conservancy'.",
         title="Feature Type",
     )
-    style: Optional[List[MepLayerStyle]] = Field(
+    style: list[MepLayerStyle] | None = Field(
         [],
         description="Optional: Override how EarthRanger spatial features are rendered on the map. If not specified, features will use their native EarthRanger colours and styling.",
         max_length=1,
@@ -597,9 +587,7 @@ class MepFeatureTypeQuery(BaseModel):
 
 
 class MepEarthRangerSource(BaseModel):
-    query: Optional[
-        Union[MepNoQuery, MepFeatureSetQuery, MepFeatureTypeQuery, MepFeatureIdQuery]
-    ] = Field(
+    query: MepNoQuery | MepFeatureSetQuery | MepFeatureTypeQuery | MepFeatureIdQuery | None = Field(
         default_factory=lambda: MepNoQuery.model_validate({"kind": "none"}),
         discriminator="kind",
         title="Query",
@@ -610,18 +598,18 @@ class IncludeErFeature(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    source: Optional[MepEarthRangerSource] = Field(
+    source: MepEarthRangerSource | None = Field(
         default_factory=lambda: MepEarthRangerSource.model_validate(
             {"query": {"kind": "none"}}
         ),
         title="Source",
     )
-    group_by: Optional[str] = Field(
+    group_by: str | None = Field(
         "type_name",
         description="Column used to group features in the map legend e.g. 'Feature Type' shows one legend entry per feature type.",
         title="Group By",
     )
-    legend_title: Optional[str] = Field(
+    legend_title: str | None = Field(
         "",
         description="Label shown in the map legend e.g. 'Park Boundary'.",
         title="Legend Title",
@@ -629,10 +617,10 @@ class IncludeErFeature(BaseModel):
 
 
 class EarthRangerSpatialFeatures(BaseModel):
-    er_client_for_spatial_features: Optional[ErClientForSpatialFeatures] = Field(
+    er_client_for_spatial_features: ErClientForSpatialFeatures | None = Field(
         None, title=""
     )
-    include_er_feature: Optional[IncludeErFeature] = Field(
+    include_er_feature: IncludeErFeature | None = Field(
         None, title="Include earthranger spatial features"
     )
 
@@ -641,44 +629,44 @@ class FormData(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    workflow_details: Optional[WorkflowDetails] = Field(
+    workflow_details: WorkflowDetails | None = Field(
         None,
         description="Add information that will help to differentiate this workflow from another.",
         title="Set workflow details",
     )
-    er_client_name: Optional[ErClientName] = Field(None, title="Connect to EarthRanger")
-    time_range: Optional[TimeRange] = Field(
+    er_client_name: ErClientName | None = Field(None, title="Connect to EarthRanger")
+    time_range: TimeRange | None = Field(
         None,
         description="Choose the period of time to analyze.",
         title="Define analysis time range",
     )
-    Subject_Group: Optional[SubjectGroup] = Field(
+    Subject_Group: SubjectGroup | None = Field(
         None,
         alias="Subject Group",
         description="Choose subject group to generate collar voltage charts and overall speedmap",
     )
-    EarthRanger_Spatial_Features: Optional[EarthRangerSpatialFeatures] = Field(
+    EarthRanger_Spatial_Features: EarthRangerSpatialFeatures | None = Field(
         None,
         alias="EarthRanger Spatial Features",
         description="Optionally overlay EarthRanger spatial feature layers (e.g. protected areas, reporting zones) on the animated map. Enable the toggle to turn this on.",
     )
-    convert_to_trajs: Optional[ConvertToTrajs] = Field(
+    convert_to_trajs: ConvertToTrajs | None = Field(
         None, title="Convert relocations to trajectories"
     )
-    terrain_exaggeration: Optional[TerrainExaggeration] = Field(
+    terrain_exaggeration: TerrainExaggeration | None = Field(
         None, title="Configure terrain elevation decoder"
     )
-    custom_basemap_urls: Optional[CustomBasemapUrls] = Field(
+    custom_basemap_urls: CustomBasemapUrls | None = Field(
         None, title="Configure Tilelayers"
     )
-    trips_view_state: Optional[TripsViewState] = Field(
+    trips_view_state: TripsViewState | None = Field(
         None, title="Calculate map view bounds"
     )
-    animation_settings: Optional[AnimationSettings] = Field(
+    animation_settings: AnimationSettings | None = Field(
         None, title="Configure animation settings"
     )
-    draw_animation: Optional[DrawAnimation] = Field(None, title="Draw animated map")
-    Video_Creation: Optional[VideoCreation] = Field(
+    draw_animation: DrawAnimation | None = Field(None, title="Draw animated map")
+    Video_Creation: VideoCreation | None = Field(
         None,
         alias="Video Creation",
         description="Optionally render the animated map as a video file. Enable the toggle to turn on video creation.",

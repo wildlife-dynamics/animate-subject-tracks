@@ -20,13 +20,15 @@ from ecoscope_workflows_core.tasks.skip import (
 )
 from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_df
 from ecoscope_workflows_core.tasks.transformation import map_columns as map_columns
+from ecoscope_workflows_ext_custom.tasks.io import (
+    persist_df_wrapper as persist_df_wrapper,
+)
 from ecoscope_workflows_ext_custom.tasks.results import (
     create_spatial_features_layer as create_spatial_features_layer,
 )
 from ecoscope_workflows_ext_ecoscope.tasks.io import (
     get_subjectgroup_observations as get_subjectgroup_observations,
 )
-from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df as persist_df
 from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
     process_relocations as process_relocations,
 )
@@ -379,7 +381,7 @@ def main(params: Params):
             method="call",
         ),
         "persist_relocs_geoparquet": Node(
-            async_task=persist_df.validate()
+            async_task=persist_df_wrapper.validate()
             .set_task_instance_id("persist_relocs_geoparquet")
             .handle_errors()
             .with_tracing()
@@ -393,15 +395,18 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "df": DependsOn("subject_reloc"),
-                "filetype": "geoparquet",
+                "filetypes": [
+                    "geoparquet",
+                ],
                 "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-                "filename": "relocations",
+                "filename_prefix": "relocations",
+                "sanitize": True,
             }
             | (params_dict.get("persist_relocs_geoparquet") or {}),
             method="call",
         ),
         "persist_trajs_geoparquet": Node(
-            async_task=persist_df.validate()
+            async_task=persist_df_wrapper.validate()
             .set_task_instance_id("persist_trajs_geoparquet")
             .handle_errors()
             .with_tracing()
@@ -415,9 +420,12 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "df": DependsOn("rename_traj_cols"),
-                "filetype": "geoparquet",
+                "filetypes": [
+                    "geoparquet",
+                ],
                 "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-                "filename": "trajectories",
+                "filename_prefix": "trajectories",
+                "sanitize": True,
             }
             | (params_dict.get("persist_trajs_geoparquet") or {}),
             method="call",

@@ -159,21 +159,23 @@ workflow:
 
   - name: Save relocations to GeoParquet
     id: persist_relocs_geoparquet
-    task: persist_df 
-    partial: 
+    task: persist_df_wrapper
+    partial:
       df: ${{ workflow.subject_reloc.return }}
-      filetype: geoparquet 
+      filetypes: [geoparquet]
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename: relocations
+      filename_prefix: relocations
+      sanitize: true
 
   - name: Save trajectories to GeoParquet
     id: persist_trajs_geoparquet
-    task: persist_df 
-    partial: 
+    task: persist_df_wrapper
+    partial:
       df: ${{ workflow.rename_traj_cols.return }}
-      filetype: geoparquet 
+      filetypes: [geoparquet]
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename: trajectories
+      filename_prefix: trajectories
+      sanitize: true
 
   - name: Configure terrain elevation decoder
     id: terrain_exaggeration
