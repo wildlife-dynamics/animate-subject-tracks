@@ -367,9 +367,16 @@ workflow:
           verbose: true
       
     # Map widgets
+  # widget + dashboard always run ("never" skip): when an upstream task skips
+  # (e.g. no observations in the time range), the widget's
+  # SkippedDependencyFallback renders a no-data widget and the run completes,
+  # instead of a SkipSentinel reaching dispatch and crashing model_dump
   - name: Create animated map widget
     id: animated_map_widget
     task: create_map_widget_single_view
+    skipif:
+      conditions:
+        - never
     partial:
       title: "Subject movements"
       data: ${{ workflow.map_urls.return }}
@@ -377,6 +384,9 @@ workflow:
   - name: Generate Dashboard
     id: animate_dashboard
     task: gather_dashboard
+    skipif:
+      conditions:
+        - never
     partial:
       details: ${{ workflow.workflow_details.return }}
       widgets:
