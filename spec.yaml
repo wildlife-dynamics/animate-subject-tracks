@@ -12,6 +12,14 @@ requirements:
     version: 0.9.2
     channel: conda-forge
 
+  # pin the playwright nodejs driver to match the playwright-python client
+  # (currently 1.62.x) — conda-forge does not cross-pin them, and a skewed
+  # solve (client 1.62.0 with driver 1.58.2) breaks chromium launch in
+  # create_animation. Bump both in lockstep when updating.
+  - name: playwright
+    version: "1.62.*"
+    channel: conda-forge
+
   - name: ecoscope-workflows-ext-custom
     version: "0.0.58.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
