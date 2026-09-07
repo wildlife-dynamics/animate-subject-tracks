@@ -18,6 +18,7 @@ FROM install AS app
 ENV PORT 8080
 ENV CONCURRENCY 1
 ENV UVICORN_TIMEOUT 600
-CMD ECOSCOPE_WORKFLOWS_MATCHSPEC_OVERRIDE=ecoscope-workflows-animate-tracks-workflow \
+CMD WT_INVOKERS__RESULTS_ENV_VAR=ECOSCOPE_WORKFLOWS_RESULTS \
+    ECOSCOPE_WORKFLOWS_MATCHSPEC_OVERRIDE=ecoscope-workflows-animate-tracks-workflow \
     pixi run -e runner \
-    uvicorn --host 0.0.0.0 --port $PORT --workers $CONCURRENCY --timeout-graceful-shutdown $UVICORN_TIMEOUT ecoscope_workflows_runner.app:app
+    uvicorn --host 0.0.0.0 --port $PORT --workers $CONCURRENCY --timeout-graceful-shutdown $UVICORN_TIMEOUT wt_runner.app:app

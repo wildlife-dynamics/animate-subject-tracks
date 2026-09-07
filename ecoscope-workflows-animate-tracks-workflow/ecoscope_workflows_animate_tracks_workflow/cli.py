@@ -7,24 +7,12 @@ import sys
 from importlib.metadata import PackageNotFoundError, version
 from io import TextIOWrapper
 from pathlib import Path
-from typing import Optional
+from typing import Any
 from urllib.parse import urlparse
 
 import click
 
 RELEASE_NAME = "ecoscope-workflows-animate-tracks-workflow"
-
-
-def to_windows_safe_path(path: str) -> str:
-    """
-    Convert path to Windows extended-length format.
-    Prevents module import failures in deeply nested folder structures.
-    Returns the path unchanged if the prefix is already applied.
-    """
-    if path.startswith("\\\\?\\") or "site-packages" not in path:
-        return path
-    abs_path = os.path.abspath(path)
-    return f"\\\\?\\{abs_path}"
 
 
 @click.group()
@@ -48,7 +36,7 @@ def cli() -> None:
 @click.option(
     "--execution-mode",
     required=True,
-    type=click.Choice(["async", "sequential"]),
+    type=click.Choice(["sequential"]),
 )
 @click.option(
     "--mock-io/--no-mock-io",
@@ -78,25 +66,31 @@ def cli() -> None:
     ),
 )
 def run(
-    config_file: Optional[TextIOWrapper],
-    config_json: Optional[str],
+    config_file: TextIOWrapper | None,
+    config_json: str | None,
     execution_mode: str,
     mock_io: bool,
-    otel_exporter: Optional[str],
+    otel_exporter: str | None,
     otel_console_exporter_dst: str,
 ) -> None:
     import obstore
-    import pydantic
     import ruamel.yaml
-    from ecoscope_workflows_core.tracing import (
+    from wt_contracts import ValidationError, validate
+    from wt_task.tracing import (
         attach_context,
         configure_tracer,
         make_otel_console_exporter_file_dst_kws,
     )
-    from opentelemetry import trace
+
+    try:
+        from opentelemetry import trace
+
+        _HAS_OTEL = True
+    except ImportError:
+        _HAS_OTEL = False
 
     from .dispatch import dispatch
-    from .params import Params
+    from .metadata import load_params_schema
 
     # Validate that exactly one of --config-file or --config-json is provided
     if (config_file is not None and config_json is not None) or (
@@ -109,21 +103,24 @@ def run(
     # Load configuration based on which option is provided
     if config_file is not None:
         yaml = ruamel.yaml.YAML(typ="safe")
-        params = Params(**yaml.load(config_file))
+        params = yaml.load(config_file) or {}
     else:  # config_json is not None
         try:
-            config_dict = json.loads(config_json)
-            params = Params(**config_dict)
+            params = json.loads(config_json)
         except json.JSONDecodeError as e:
             raise click.BadParameter(
                 "Invalid JSON string for --config-json", param_hint="--config-json"
             ) from e
-        except pydantic.ValidationError as e:
-            raise click.BadParameter(
-                f"Invalid configuration: {e}", param_hint="--config-json"
-            ) from e
 
-    # Rest of the function remains unchanged
+    params_schema = load_params_schema()
+    try:
+        validate(params, params_schema)
+    except ValidationError as e:
+        param_hint = "--config-file" if config_file is not None else "--config-json"
+        raise click.BadParameter(
+            f"Invalid configuration: {e}", param_hint=param_hint
+        ) from e
+
     results_url = os.environ.get("ECOSCOPE_WORKFLOWS_RESULTS")
     if not results_url:
         raise ValueError("Environment variable ECOSCOPE_WORKFLOWS_RESULTS is required.")
@@ -150,22 +147,30 @@ def run(
     )
     if (traceparent := os.environ.get("TRACEPARENT")) is not None:
         attach_context(traceparent, tracestate=os.environ.get("TRACESTATE"))
-    tracer = trace.get_tracer(__name__)
-    tracer_attributes = {
-        "execution_mode": execution_mode,
-        "mock_io": mock_io,
-        "config.time_range": params.time_range.model_dump_json()
-        if "time_range" in params.model_fields_set
-        else "",
-        "config.groupers": params.groupers.model_dump_json()
-        if "groupers" in params.model_fields_set
-        else "",
-        "version": _version,
-    }
-    with tracer.start_as_current_span(
-        f"{RELEASE_NAME}.cli", attributes=tracer_attributes
-    ):
-        response = dispatch(execution_mode, mock_io, params)
+    if _HAS_OTEL:
+        tracer = trace.get_tracer(__name__)
+        tracer_attributes = {
+            "execution_mode": execution_mode,
+            "mock_io": mock_io,
+            "config.time_range": json.dumps(params.get("time_range", "")),
+            "config.groupers": json.dumps(params.get("groupers", "")),
+            "version": _version,
+        }
+        with tracer.start_as_current_span(
+            f"{RELEASE_NAME}.cli", attributes=tracer_attributes
+        ):
+            response = dispatch(
+                execution_mode, mock_io, params, validate_params_schema=False
+            )
+            result_store = obstore.store.from_url(results_url)
+            result_bytes = response.model_dump_json().encode("utf-8")
+            put_result = result_store.put("result.json", result_bytes)
+            if not put_result:
+                raise RuntimeError("Failed to put result json in result store.")
+    else:
+        response = dispatch(
+            execution_mode, mock_io, params, validate_params_schema=False
+        )
         result_store = obstore.store.from_url(results_url)
         result_bytes = response.model_dump_json().encode("utf-8")
         put_result = result_store.put("result.json", result_bytes)
@@ -176,18 +181,20 @@ def run(
 @cli.command()
 @click.argument(
     "metadata_attribute",
-    type=click.Choice(["rjsf", "data-connection-property-names"]),
+    type=click.Choice(["rjsf", "params", "data-connection-property-names"]),
     required=True,
 )
 def get(metadata_attribute: str) -> None:
     """Get the metadata for the workflow."""
     from .metadata import (
         get_data_connection_property_names,
-        get_rjsf,
+        load_params_schema,
+        load_rjsf_schema,
     )
 
     getter = {
-        "rjsf": get_rjsf,
+        "rjsf": load_rjsf_schema,
+        "params": load_params_schema,
         "data-connection-property-names": get_data_connection_property_names,
     }.get(metadata_attribute)
     if getter is None:
@@ -221,40 +228,46 @@ def convert(
     to: str,
     json_: TextIOWrapper,
 ) -> None:
-    """Get the metadata for the workflow."""
-    import pydantic
+    """Convert between params and formdata representations.
 
-    from .formdata import FormData
-    from .metadata import (
+    Emits a single-key JSON envelope on stdout:
+
+    - ``{"result": {...}}`` on success
+    - ``{"validation_errors": [...]}`` on schema-validation failure
+
+    Exit code is ``0`` for both outcomes; non-zero is reserved for genuine
+    CLI failures (bad args, missing schema files, ...).
+    """
+    from wt_contracts import (
+        ValidationError,
         formdata_to_params,
         params_to_formdata,
     )
+
+    from .metadata import load_params_schema, load_rjsf_schema
 
     json_txt = json_.read()
     try:
         loaded = json.loads(json_txt)
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse JSON string: {json_txt}") from e
+
+    rjsf_schema = load_rjsf_schema()
+    params_schema = load_params_schema()
     try:
         match from_, to:
             case ("params", "formdata"):
-                result = params_to_formdata(loaded)
-                as_json = json.dumps(result)
+                result = params_to_formdata(loaded, rjsf_schema, params_schema)
             case ("formdata", "params"):
-                formdata = FormData(**loaded)
-                result = formdata_to_params(formdata)
-                as_json = result.model_dump_json()
+                result = formdata_to_params(loaded, rjsf_schema, params_schema)
             case _:
                 raise ValueError(f"Unknown conversion: {from_} -> {to}")
-    except pydantic.ValidationError as e:
-        as_json = e.json(include_url=True)
+        envelope: dict[str, Any] = {"result": result}
+    except ValidationError as e:
+        envelope = {"validation_errors": e.errors}
 
-    print(as_json)
+    print(json.dumps(envelope))
 
 
 if __name__ == "__main__":
-    # Patch sys.path on windows to safeguard against import errors
-    # due to long file paths in deeply nested directory structures
-    # if sys.platform == "win32":
-    #     sys.path = [to_windows_safe_path(p) for p in sys.path]
     cli()

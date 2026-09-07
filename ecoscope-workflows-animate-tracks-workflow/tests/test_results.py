@@ -2,13 +2,20 @@
 
 import asyncio
 import json
-from typing import Any, Coroutine
+import re
+from collections.abc import Coroutine
+from pathlib import Path
+from typing import Any
 
 import pytest
 import pytest_check.context_manager
 from conftest import MATCHSPEC_OVERRIDE, ReconstructedOtelSpan, RunParams
 from syrupy import SnapshotAssertion
 from syrupy.matchers import path_type
+
+_UUID_RE = re.compile(
+    r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b"
+)
 
 
 def test_failure_response(
@@ -28,18 +35,21 @@ def test_failure_response(
 
 
 def test_dashboard_json(
-    no_data: bool, response_json_success: dict, snapshot_json: SnapshotAssertion
+    response_json_success: dict,
+    snapshot_json: SnapshotAssertion,
+    tmp_path: Path,
 ):
-    if no_data:
-        kws = {}
-    else:
-        exclude_results_data = {
-            f"result.views.{key}.{i}.data": (str,)
-            for key in response_json_success["result"]["views"]
-            for i, _ in enumerate(response_json_success["result"]["views"][key])
-        }
-        kws = {"matcher": path_type(exclude_results_data)}
-    assert response_json_success == snapshot_json(**kws)
+    # replace any UUIDs or paths to test output in the response_json
+    tmp_root = str(tmp_path.parent)
+
+    def _replace_ephemeral_values(*, data, path):
+        if not isinstance(data, str):
+            return data
+        if data.startswith(tmp_root):
+            return "tmpfile"
+        return _UUID_RE.sub("uuid", data)
+
+    assert response_json_success == snapshot_json(matcher=_replace_ephemeral_values)
 
 
 @pytest.mark.asyncio

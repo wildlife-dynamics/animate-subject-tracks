@@ -51,7 +51,7 @@ defaults — the only things you truly need to set are the **data source**,
 **time range**, and **subject group name**. Everything under an "Advanced" /
 optional section is safe to leave alone on your first run.
 
-### Set workflow details
+### Workflow Details
 | Field | Required? | Notes |
 |---|---|---|
 | **Workflow Name** | Yes | A label for this run, e.g. `Elephants – July 2026`. Helps you find it again later in your run history. |
@@ -62,7 +62,7 @@ optional section is safe to leave alone on your first run.
 |---|---|---|
 | **Data Source** | Yes | Choose the EarthRanger site/connection to pull data from. |
 
-### Define analysis time range
+### Time Range
 | Field | Required? | Notes |
 |---|---|---|
 | **Since** | Yes | Start of the period to animate. |
@@ -79,31 +79,23 @@ optional section is safe to leave alone on your first run.
 |---|---|---|
 | **Subject Group Name** | Yes (default: `Elephants`) | Must exactly match a subject group name configured in EarthRanger. This determines which subjects' tracks get animated. |
 
-### Convert relocations to trajectories *(advanced, optional)*
-A **Trajectory Segment Filter** removes GPS noise by discarding movement
-segments that are too short, too long, too fast, or too slow to be real
-animal movement (e.g. a GPS glitch that implies teleporting 100 km in one
-second). The defaults work well for most terrestrial wildlife — you generally
-don't need to touch this unless you're animating a species with very
-unusual movement patterns (e.g. birds).
+### Trajectory Segment Filter *(advanced, optional)*
+Removes GPS noise by discarding movement segments that are too short, too
+long, too fast, or too slow to be real animal movement (e.g. a GPS glitch
+that implies teleporting 100 km in one second). The defaults work well for
+most terrestrial wildlife — you generally don't need to touch this unless
+you're animating a species with very unusual movement patterns (e.g. birds).
 
-### Configure terrain elevation decoder *(advanced, optional)*
+### Terrain Exaggeration *(advanced, optional)*
 - **Exaggeration** — stretches terrain height for visual effect. `1.0` is
   true-to-scale; `2.0` doubles apparent elevation, useful for making subtle
   hills/valleys more visible on flat landscapes.
 
-### Calculate map view bounds *(advanced, optional)*
-- **Pitch** — camera tilt, `0` (top-down, default) to `90` (looking at the
-  horizon).
-- **Bearing** — compass rotation of the map, `-180` to `180`, `0` = north up.
-
-### Configure animation settings *(advanced, optional)*
+### Animation Settings *(advanced, optional)*
 - **Animation Speed** — how fast simulated time passes per real second of
   playback. Higher = faster playback.
-- **Head Radius** / **Head Outline Width** — size and outline thickness of
-  the moving dot that marks each subject's current position.
 
-### Draw animated map *(advanced, optional)*
+### Draw Animation *(advanced, optional)*
 - **Head Layer** — swaps the flat colored dot for a 3-D animal model (a
   bundled elephant model by default) that rotates to face its direction of
   travel. Off by default. Turn on **Enabled** to use it; the other fields
@@ -118,6 +110,8 @@ addition to the interactive map.
 |---|---|
 | **Enabled** | Turns video rendering on. Leave off if you only want the interactive map (faster run). |
 | **Camera** | How the video's camera moves. Choose one: |
+| **Duration** | Auto-match the animation's own playback length, or set a fixed duration in seconds. |
+| **Resolution** | Output video size — pick a common preset (720p, 1080p, 4K) or specify a custom width/height in pixels. |
 
 - **Static** — camera holds one fixed view for the whole video.
 - **Fit** — camera zooms out just enough to keep every point visited so far in frame.
@@ -149,4 +143,4 @@ glance what a given run covers.
 | The map is empty / no trails appear | The subject group name doesn't match EarthRanger exactly, or there are no location fixes for that group in the chosen time range. |
 | Run takes a long time | The time range is very wide, the subject group is large, or Video Creation is enabled — all three multiply how much data is fetched and rendered. |
 | A subject's trail looks broken into short disconnected pieces | The Trajectory Segment Filter (advanced) may be discarding segments as noise. Only adjust this if you understand your data's typical fix intervals and speeds. |
-| The 3-D animal model doesn't appear | The **Head Layer** toggle under "Draw animated map" is off by default — enable it to render 3-D models instead of flat dots. |
+| The 3-D animal model doesn't appear | The **Head Layer** toggle under "Draw Animation" is off by default — enable it to render 3-D models instead of flat dots. |

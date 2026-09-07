@@ -1,42 +1,33 @@
 id: animate_tracks
 requirements:
-  - name: ecoscope-workflows-core
-    version: "0.22.17.*"
+  - name: ecoscope-platform
+    version: ">=2.15.0, <2.16.0"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
-  - name: ecoscope-workflows-ext-ecoscope
-    version: "0.22.17.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows/
+  - name: ecoscope-workflows-ext-custom
+    version: "0.1.0rc14.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
+  - name: ecoscope-workflows-ext-ste
+    version: "0.0.0rc1.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
+  - name: ecoscope-workflows-ext-mep
+    version: "1.0.2.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+    
   - name: pydeck
     version: 0.9.2
     channel: conda-forge
 
-  - name: ecoscope-workflows-ext-custom
-    version: "0.0.58.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-
-  - name: ecoscope-workflows-ext-ste
-    version: "0.0.22.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-
-  - name: ecoscope-workflows-ext-mnc
-    version: "0.0.7.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-
-  - name: ecoscope-workflows-ext-big-life
-    version: "0.0.8.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-
-  - name: ecoscope-workflows-ext-mep
-    version: "0.0.29.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+  - name: opentelemetry-sdk
+    version: ">=1.20.0,<2.0.0"
+    channel: conda-forge
 
 rjsf-overrides:
   properties:
     Subject Group.properties.subject_group_var.properties.var.title: Subject Group Name
     Subject Group.properties.subject_group_var.properties.var.default: Elephants
-    trips_view_state.properties.pitch.default: 0
 task-instance-defaults:
   skipif:
     conditions:
@@ -45,7 +36,7 @@ task-instance-defaults:
 
 workflow:
   # set workflow details
-  - name: Set workflow details
+  - name: Workflow Details
     id: workflow_details
     task: set_workflow_details
 
@@ -54,7 +45,7 @@ workflow:
     task: set_er_connection 
 
   # define time range
-  - name: Define analysis time range
+  - name: Time Range
     id: time_range
     task: set_time_range
 
@@ -85,30 +76,6 @@ workflow:
       include_details: true
       include_subjectsource_details: true
 
-  - title: EarthRanger Spatial Features
-    type: task-group
-    description: >-
-      Optionally overlay EarthRanger spatial feature layers (e.g. protected areas, reporting
-      zones) on the animated map. Enable the toggle to turn this on.
-    tasks:
-      - name: null
-        id: er_client_for_spatial_features
-        task: gate_earthranger_client
-        partial:
-          client: ${{ workflow.er_client_name.return }}
-
-      - name: Include earthranger spatial features
-        id: include_er_feature
-        task: get_mep_spatial_features
-        partial:
-          client: ${{ workflow.er_client_for_spatial_features.return }}
-
-      - name: Create spatial features layer
-        id: er_spatial_layer
-        task: create_spatial_features_layer
-        partial:
-          geodataframe: ${{ workflow.include_er_feature.return }}
-
   - name: Transform observations to relocations
     id: subject_reloc
     task: process_relocations
@@ -136,7 +103,7 @@ workflow:
         - x: 1.000000
           y: 1.000000
 
-  - name: Convert relocations to trajectories 
+  - name: Trajectory Segment Filter 
     id: convert_to_trajs 
     task: relocations_to_trajectory 
     partial: 
@@ -175,7 +142,7 @@ workflow:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       filename: trajectories
 
-  - name: Configure terrain elevation decoder
+  - name: Terrain Exaggeration
     id: terrain_exaggeration
     task: create_elevation_decoder
     partial:
@@ -184,9 +151,12 @@ workflow:
       b_scaler: 0.00390625 #1/256
       offset: -32768.0
 
-  - name: Configure Tilelayers
+  - name: Configure Basemap URLs
     id: custom_basemap_urls
-    task: set_custom_basemap_urls
+    task: set_basemap_urls
+    partial:
+      elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+      texture: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
 
   - name: Configure basemap
     id: basemap_option
@@ -209,7 +179,8 @@ workflow:
         offset: 30
         cache_dir: null
         ground_elevation: 1500
-        basemap: ${{ workflow.basemap_option.return }}
+        elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+        elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
 
   - name: Create terrain layer
     id: terrain_layer
@@ -217,14 +188,30 @@ workflow:
     partial:
       min_zoom: 0
       max_zoom: 15
-      basemap: ${{ workflow.basemap_option.return }}
       wireframe: false
+      elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+      texture: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+      elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
 
-  - name: Calculate map view bounds
-    id: trips_view_state
-    task: compute_view_state_from_gdf
-    partial:
-      gdf: ${{ workflow.trajs_trips.return }}
+  - title: Map Zoom & Extent
+    type: task-group
+    description: Calculate the geographic extent of the movement tracks and determine an appropriate zoom level and center point for the map. This ensures that all tracks are visible and well-framed when the map is rendered.
+    tasks:
+      - name: null
+        id: zoom_to_envelope 
+        task: ecoscope_workflows_ext_ste.tasks.spatial_operations.envelope_gdf
+        partial:
+          expansion_factor: 1.05
+          gdf: ${{ workflow.trajs_trips.return }}
+  
+      - name: Zoom view to gdf extent
+        id: trips_view_state
+        task: ecoscope_workflows_ext_ste.tasks.spatial_operations.compute_view_state_from_gdf
+        partial:
+          pitch: 0
+          bearing: 0
+          max_zoom: 15
+          gdf: ${{ workflow.zoom_to_envelope.return }}
   
   - name: Normalize animation timestamps
     id: normalize_trips 
@@ -260,7 +247,7 @@ workflow:
         sort: ascending 
         label_suffix: null 
   
-  - name: Configure animation settings
+  - name: Animation Settings
     id: animation_settings
     task: create_timeline_animation
     partial:
@@ -272,32 +259,16 @@ workflow:
       history_opacity: 1.00
       fade_history: true
       show_head: true
-      # head_radius: 2.25
+      head_radius: 1.75
       head_color: null
-      # head_outline_width: 1.05
+      head_outline_width: 1.00
       auto_rotate_speed: 0.0
 
-  - name: Append optional ER spatial layer
-    id: static_map_layers
-    task: append_optional_layer
-    skipif:
-      conditions: []
-    partial:
-      base_layers: []
-      optional_layer: ${{ workflow.er_spatial_layer.return }}
-
-  - name: Combine spatial layers with grouped layers
-    id: combined_bse_layers
-    task: combine_deckgl_map_layers
-    partial:
-      static_layers: ${{ workflow.static_map_layers.return }}
-      grouped_layers: ${{ workflow.trips_layer.return }}
-
-  - name: Draw animated map
+  - name: Draw Animation
     id: draw_animation
     task: draw_animated_map
     partial:
-      geo_layers: ${{ workflow.combined_bse_layers.return }}
+      geo_layers: ${{ workflow.trips_layer.return }}
       tile_layers:
         - ${{ workflow.terrain_layer.return }}
       static: false

@@ -6,22 +6,19 @@ import hashlib
 import io
 import json
 import uuid
+from collections.abc import Coroutine, Generator, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Coroutine, Generator, Iterator, Literal
+from typing import Any, Literal
 from unittest.mock import patch
 
 import numpy as np
 import pytest
 import ruamel.yaml
-from ecoscope_workflows_runner.app import app
-from ecoscope_workflows_runner.testing import Case, CaseRunner
-from ecoscope_workflows_runner.tracing import (
-    build_context_headers,
-    configure_tracer,
-    make_otel_console_exporter_file_dst_kws,
-)
 from opentelemetry import trace
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider as SDKTracerProvider
+from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SimpleSpanProcessor
 from PIL import Image
 from playwright.async_api import async_playwright
 from rattler import MatchSpec
@@ -32,14 +29,21 @@ from syrupy.extensions.json import JSONSnapshotExtension
 from syrupy.location import PyTestLocation
 from syrupy.terminal import reset
 from syrupy.types import SerializedData, SnapshotIndex
+from wt_runner.app import app
+from wt_runner.testing import Case, CaseRunner
+from wt_runner.tracing import (
+    build_context_headers,
+    make_otel_console_exporter_file_dst_kws,
+)
 
 ARTIFACTS = Path(__file__).parent.parent
 SNAPSHOT_DIRNAME = ARTIFACTS.parent / "__results_snapshots__"
 SNAPSHOT_DIFF_OUTPUT_DIRNAME = ARTIFACTS.parent / "__diff_output__"
 TEST_CASES_YAML = ARTIFACTS.parent / "test-cases.yaml"
 MATCHSPEC_OVERRIDE = "ecoscope-workflows-animate-tracks-workflow"
+RESULTS_ENV_VAR = "ECOSCOPE_WORKFLOWS_RESULTS"
 IO_TASKS_IMPORTABLE_REFERENCES = [
-    "ecoscope_workflows_ext_ecoscope.tasks.io.get_subjectgroup_observations",
+    "ecoscope.platform.tasks.io.get_subjectgroup_observations",
 ]
 
 yaml = ruamel.yaml.YAML(typ="safe")
@@ -110,7 +114,7 @@ class CustomJSONSnapshot(CustomSnapshotDirnameMixin, JSONSnapshotExtension):
         )
         test_name = original_name.split("[").pop(0)
         execution_mode = next(
-            s for s in original_name.split("-") if s in ["async", "sequential"]
+            s for s in original_name.split("-") if s in ["sequential"]
         )
         hasdata = "nodata" if "nodata" in original_name else "data"
         specifier = hasdata + (f"-{execution_mode}" if "failure" in test_name else "")
@@ -226,7 +230,7 @@ def results_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @dataclass
 class RunParams:
     api: Literal["app", "cli"]
-    execution_mode: Literal["async", "sequential"]
+    execution_mode: Literal["sequential"]
     mock_io: bool = True
 
     @property
@@ -238,15 +242,11 @@ class RunParams:
 @pytest.fixture(
     scope="session",
     params=[
-        RunParams(api="app", execution_mode="async"),
         RunParams(api="app", execution_mode="sequential"),
-        RunParams(api="cli", execution_mode="async"),
         RunParams(api="cli", execution_mode="sequential"),
     ],
     ids=[
-        "app-async-mock-io",
         "app-sequential-mock-io",
-        "cli-async-mock-io",
         "cli-sequential-mock-io",
     ],
 )
@@ -279,6 +279,7 @@ def _run_test_case(
                     "ECOSCOPE_WORKFLOWS_OTEL_EXPORTER": "console",
                     "ECOSCOPE_WORKFLOWS_OTEL_CONSOLE_EXPORTER_DST": "file",
                     "ECOSCOPE_WORKFLOWS_OTEL_CONSOLE_EXPORTER_FILE_DST_TARGET_DIR": results_subdir.as_posix(),
+                    "WT_INVOKERS__RESULTS_ENV_VAR": RESULTS_ENV_VAR,
                 },
             ):
                 return case_runner.run_app(
@@ -287,7 +288,11 @@ def _run_test_case(
         case "cli":
             if case.raises:
                 pytest.skip("CLI tests do not yet support error handling.")
-            return case_runner.run_cli(matchspec=MatchSpec(matchspec_override))
+            with patch.dict(
+                "os.environ",
+                {"WT_INVOKERS__RESULTS_ENV_VAR": RESULTS_ENV_VAR},
+            ):
+                return case_runner.run_cli(matchspec=MatchSpec(matchspec_override))
         case _ as unknown:
             raise ValueError(f"Unknown API: {unknown}")
 
@@ -357,13 +362,23 @@ def conftest_tracer_dst(results_dir: Path):
     return results_dir / "otel_traces.jsonl"
 
 
-@pytest.fixture(scope="session")
-def conftest_tracer(conftest_tracer_dst: Path) -> trace.Tracer:
+@pytest.fixture(scope="session", autouse=True)
+def conftest_tracer_provider(conftest_tracer_dst: Path):
     otel_exporter_kws = make_otel_console_exporter_file_dst_kws(
         target_dir=conftest_tracer_dst.parent,
     )
-    configure_tracer("conftest", exporter="console", exporter_kws=otel_exporter_kws)
-    return trace.get_tracer(__name__)
+    resource = Resource.create({"service.name": "conftest"})
+    provider = SDKTracerProvider(resource=resource)
+    provider.add_span_processor(
+        SimpleSpanProcessor(ConsoleSpanExporter(**otel_exporter_kws))
+    )
+    trace.set_tracer_provider(provider)
+    return provider
+
+
+@pytest.fixture(scope="session")
+def conftest_tracer(conftest_tracer_provider) -> trace.Tracer:
+    return conftest_tracer_provider.get_tracer(__name__)
 
 
 @pytest.fixture(scope="session")
@@ -377,7 +392,11 @@ def response_json_success(
     io_tasks_importable_references: list[str],
     conftest_tracer: trace.Tracer,
     conftest_tracer_dst: Path,
+    conftest_tracer_provider,
 ) -> Generator[dict]:
+    if conftest_tracer_dst.exists():
+        with conftest_tracer_dst.open("w") as f:
+            pass
     data_connections_env_vars = None
     if no_data:
         import pandas as pd
@@ -386,7 +405,7 @@ def response_json_success(
         example_return_path = mock_io_dir.joinpath("empty.parquet")
         pd.DataFrame().to_parquet(example_return_path)
         data_connections_env_vars = {
-            f"ECOSCOPE_WORKFLOWS_MOCK_IO__{ref.replace('.', '_').upper()}": example_return_path.as_posix()
+            f"WT_TASK_MOCK_IO__{ref.replace('.', '_').upper()}": example_return_path.as_posix()
             for ref in io_tasks_importable_references
         }
     with conftest_tracer.start_as_current_span(
@@ -405,9 +424,7 @@ def response_json_success(
             data_connections_env_vars,
             traceparent=traceparent,
         )
-    # exit context to close span, and then flush tracer provider
-    provider = trace.get_tracer_provider()
-    provider.force_flush()
+    conftest_tracer_provider.force_flush()
     yield result
     if conftest_tracer_dst.exists():
         with conftest_tracer_dst.open("r+") as f:
