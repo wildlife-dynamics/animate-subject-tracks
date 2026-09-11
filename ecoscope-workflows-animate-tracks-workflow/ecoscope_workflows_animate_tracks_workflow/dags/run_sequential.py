@@ -181,7 +181,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             subject_group_name=subject_group_var,
             raise_on_empty=False,
             include_details=True,
-            include_subjectsource_details=True,
+            include_subjectsource_details=False,
             **(params.get("subject_observations") or {}),
         )
         .call()
@@ -210,11 +210,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
                 "extra__subject__name",
                 "extra__subject__hex",
                 "extra__subject__sex",
-                "extra__created_at",
-                "extra__subject__subject_subtype",
-                "extra__subjectsource__id",
-                "extra__subjectsource__assigned_range",
-                "extra__observation_details",
             ],
             filter_point_coords=[
                 {"x": 180.0, "y": 90.0},

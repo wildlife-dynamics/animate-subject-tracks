@@ -74,7 +74,7 @@ workflow:
       subject_group_name: ${{ workflow.subject_group_var.return }} 
       raise_on_empty: false
       include_details: true
-      include_subjectsource_details: true
+      include_subjectsource_details: false
 
   - name: Transform observations to relocations
     id: subject_reloc
@@ -89,11 +89,11 @@ workflow:
         - extra__subject__name
         - extra__subject__hex
         - extra__subject__sex
-        - extra__created_at
-        - extra__subject__subject_subtype
-        - extra__subjectsource__id
-        - extra__subjectsource__assigned_range
-        - extra__observation_details
+        # - extra__created_at
+        # - extra__subject__subject_subtype
+        # - extra__subjectsource__id
+        # - extra__subjectsource__assigned_range
+        # - extra__observation_details
 
       filter_point_coords:
         - x: 180.000000
