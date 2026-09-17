@@ -89,12 +89,6 @@ workflow:
         - extra__subject__name
         - extra__subject__hex
         - extra__subject__sex
-        # - extra__created_at
-        # - extra__subject__subject_subtype
-        # - extra__subjectsource__id
-        # - extra__subjectsource__assigned_range
-        # - extra__observation_details
-
       filter_point_coords:
         - x: 180.000000
           y: 90.000000
@@ -331,6 +325,9 @@ workflow:
   - name: Create animated map widget
     id: animated_map_widget
     task: create_map_widget_single_view
+    skipif:
+      conditions:
+        - never
     partial:
       title: "Subject movements"
       data: ${{ workflow.map_urls.return }}
