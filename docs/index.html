@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Animate Subject Tracks Workflow</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="index.html">Animate Subject Tracks</a>
+      <nav>
+        <a href="index.html" class="active">Overview</a>
+        <a href="user-guide.html">User Guide</a>
+        <a href="technical-guide.html">Technical Guide</a>
+        <a href="troubleshooting.html">Troubleshooting</a>
+        <a href="https://github.com/wildlife-dynamics/animate-subject-tracks">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <h1>Animate Subject Tracks Workflow</h1>
+    <p class="lede">Turns an EarthRanger subject group's GPS history into an animated 3D map: each subject's track sweeps across real terrain as time passes, and the same animation is exported as an MP4 video.</p>
+
+    <div class="card-grid">
+      <a class="card" href="user-guide.html">
+        <h3>User Guide</h3>
+        <p>Step-by-step instructions for loading, configuring, and running the workflow, including every camera option.</p>
+      </a>
+      <a class="card" href="technical-guide.html">
+        <h3>Technical Guide</h3>
+        <p>How it works: the data cleaning pipeline, terrain draping, the animated map, and frame-by-frame video recording.</p>
+      </a>
+      <a class="card" href="troubleshooting.html">
+        <h3>Troubleshooting</h3>
+        <p>Common problems when configuring, running, or contributing to the workflow, and how to fix them.</p>
+      </a>
+    </div>
+
+    <h2>What it produces</h2>
+    <ul>
+      <li>An <strong>interactive animated 3D map</strong> (<code>animated_map.html</code>). Each subject is drawn as a trail in its EarthRanger colour, with a marker at its current position, over satellite imagery draped on 3D terrain. It has a playback bar and a legend of subject names.</li>
+      <li>An <strong>MP4 video</strong> (<code>animation.mp4</code>) of the same animation, recorded with the camera movement you choose</li>
+      <li><strong>GeoParquet files</strong> of the cleaned relocations and trajectories</li>
+      <li>A <strong>dashboard</strong> showing the animated map, with the workflow details and time range</li>
+    </ul>
+
+    <h2>Requirements</h2>
+    <ul>
+      <li>An <strong>EarthRanger connection</strong> configured in the workflow runner</li>
+      <li>The name of a <strong>subject group</strong> in EarthRanger, e.g. <code>Elephants</code>. Every subject in the group gets its own track.</li>
+      <li><strong>Internet access</strong> while the workflow runs. Terrain elevation tiles (AWS Terrarium) and satellite imagery (Esri World Imagery) are fetched live.</li>
+    </ul>
+
+    <h2>Get started</h2>
+    <p>New to the workflow? Start with the <a href="user-guide.html">User Guide</a>. For a first run you only need to set the workflow name, data source, time range, and subject group; everything else has defaults. Running into a problem? Check <a href="troubleshooting.html">Troubleshooting</a>.</p>
+  </main>
+
+  <footer class="site-footer">
+    <p>Animate Subject Tracks Workflow &middot; <a href="https://github.com/wildlife-dynamics/animate-subject-tracks">wildlife-dynamics/animate-subject-tracks</a> on GitHub</p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Animate Subject Tracks Workflow</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 860px; margin: 40px auto; padding: 0 24px; color: #1a1a1a; line-height: 1.6; }
+    h1 { font-size: 2em; border-bottom: 2px solid #2d6a4f; padding-bottom: 10px; color: #2d6a4f; }
+    h2 { font-size: 1.4em; color: #2d6a4f; margin-top: 2em; border-bottom: 1px solid #b7e4c7; padding-bottom: 4px; }
+    h3 { font-size: 1.1em; color: #40916c; margin-top: 1.5em; }
+    h4 { font-size: 1em; color: #52b788; }
+    img { max-width: 100%; border: 1px solid #d8e8d8; border-radius: 6px; margin: 16px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    pre { background: #f4f4f4; padding: 12px 16px; border-radius: 6px; font-size: 0.9em; overflow-x: auto; border-left: 4px solid #52b788; }
+    code { background: #f0f7f0; padding: 2px 5px; border-radius: 3px; font-size: 0.9em; }
+    pre code { background: none; padding: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.95em; }
+    th { background: #2d6a4f; color: white; padding: 10px 14px; text-align: left; }
+    td { padding: 9px 14px; border-bottom: 1px solid #d8e8d8; }
+    tr:nth-child(even) td { background: #f0f7f0; }
+    hr { border: none; border-top: 1px solid #d8e8d8; margin: 2em 0; }
+    blockquote { border-left: 4px solid #52b788; margin: 1em 0; padding: 8px 16px; background: #f0f7f0; color: #444; border-radius: 0 4px 4px 0; }
+  </style>
+</head>
+<body>
+
+<h1 id="animate-subject-tracks-workflow">Animate Subject Tracks Workflow</h1>
+<p>Turns an EarthRanger subject group's GPS history into an animated 3D map: each subject's track sweeps across real terrain as time passes, and the same animation is exported as an MP4 video.</p>
+<p>Full documentation: <strong><a href="https://wildlife-dynamics.github.io/animate-subject-tracks/">wildlife-dynamics.github.io/animate-subject-tracks</a></strong> (User Guide, Technical Guide and Troubleshooting).</p>
+<h2 id="what-it-produces">What it produces</h2>
+<ul>
+<li>An <strong>interactive animated 3D map</strong> (<code>animated_map.html</code>). Each subject is drawn as a trail in its EarthRanger colour, with a marker at its current position, over satellite imagery draped on 3D terrain. It has a playback bar (play/pause, restart, time slider, speed) and a legend of subject names.</li>
+<li>An <strong>MP4 video</strong> (<code>animation.mp4</code>) of the same animation, recorded with the camera movement you choose.</li>
+<li><strong>GeoParquet files</strong> of the cleaned relocations and trajectories, for further analysis.</li>
+<li>A <strong>dashboard</strong> showing the animated map, with the workflow details and time range.</li>
+</ul>
+<h2 id="requirements">Requirements</h2>
+<ul>
+<li>An <strong>EarthRanger connection</strong> configured in the workflow runner.</li>
+<li>The name of a <strong>subject group</strong> in EarthRanger, e.g. <code>Elephants</code>. Every subject in the group gets its own track.</li>
+<li>Internet access while the workflow runs. Terrain elevation tiles (AWS Terrarium) and satellite imagery (Esri World Imagery) are fetched live.</li>
+</ul>
+<blockquote>
+<p>Longer time ranges and larger subject groups take longer to fetch and to record as video. For a first run, a range of a few days to a few weeks works well.</p>
+</blockquote>
+<hr />
+<h2 id="1-load-the-workflow">1. Load the Workflow</h2>
+<p>In the workflow runner, go to <strong>Workflow Templates</strong> and click <strong>Add Workflow Template</strong>. Paste this repository's URL into the <strong>Github Link</strong> field, then click <strong>Add Template</strong>:</p>
+<pre><code>https://github.com/wildlife-dynamics/animate-subject-tracks.git
+</code></pre>
+<p>Once added, the workflow appears in the <strong>Workflow Templates</strong> list. Click it to open the configuration form.</p>
+<blockquote>
+<p>The card may show <strong>Initializing…</strong> briefly while the environment is set up.</p>
+</blockquote>
+<hr />
+<h2 id="2-configure-the-workflow">2. Configure the Workflow</h2>
+<p>Only the <strong>Workflow Name</strong>, <strong>Data Source</strong>, <strong>Time Range</strong> and <strong>Subject Group Name</strong> need to be filled in. Every other section is pre-filled with defaults and can be left alone on a first run. Fields marked <em>advanced</em> are collapsed on the form.</p>
+<h3 id="workflow-details">Workflow Details</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Workflow Name</td>
+<td>A short name to identify this run, e.g. <code>Elephants – July 2026</code></td>
+</tr>
+<tr>
+<td>Workflow Description</td>
+<td>Optional notes about the run</td>
+</tr>
+</tbody>
+</table>
+<h3 id="connect-to-earthranger">Connect to EarthRanger</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Data Source</td>
+<td>The EarthRanger connection to pull tracking data from</td>
+</tr>
+</tbody>
+</table>
+<h3 id="time-range">Time Range</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Since</td>
+<td>Start of the period to animate</td>
+</tr>
+<tr>
+<td>Until</td>
+<td>End of the period to animate</td>
+</tr>
+<tr>
+<td>Timezone</td>
+<td>Optional timezone for Since/Until</td>
+</tr>
+<tr>
+<td>Time Format <em>(advanced)</em></td>
+<td>How times are displayed on the dashboard. Default <code>%d %b %Y %H:%M:%S</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="subject-group">Subject Group</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Subject Group Name</td>
+<td>The EarthRanger subject group to animate. Must match the group name exactly. A group with mixed subject subtypes can give unexpected results.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="trajectory-segment-filter-advanced">Trajectory Segment Filter <em>(advanced)</em></h3>
+<p>Removes GPS noise by dropping track segments whose length, duration or speed falls outside these limits. The defaults suit most terrestrial wildlife.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Min / Max length</td>
+<td><code>0.001</code> m / <code>100 000</code> m</td>
+</tr>
+<tr>
+<td>Min / Max time</td>
+<td><code>1</code> s / <code>172 800</code> s (2 days)</td>
+</tr>
+<tr>
+<td>Min / Max speed</td>
+<td><code>0.01</code> km/h / <code>500</code> km/h</td>
+</tr>
+</tbody>
+</table>
+<h3 id="terrain-exaggeration-advanced">Terrain Exaggeration <em>(advanced)</em></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Exaggeration</td>
+<td><code>1.0</code></td>
+<td>Vertical scale of the 3D terrain. <code>1.0</code> is true scale; <code>2.0</code> doubles apparent heights, which helps on flat landscapes.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="terrain-sampling-advanced">Terrain Sampling <em>(advanced)</em></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Offset</td>
+<td><code>30</code> m</td>
+<td>Height added above the ground at every track point, so trails sit on top of the terrain rather than inside it</td>
+</tr>
+<tr>
+<td>Ground Elevation</td>
+<td><code>1000</code> m</td>
+<td>Constant ground height used only if elevation tiles can't be read</td>
+</tr>
+</tbody>
+</table>
+<h3 id="map-zoom-extent-advanced">Map Zoom &amp; Extent <em>(advanced)</em></h3>
+<p>The map is automatically centred and zoomed to fit every track. These two fields set the viewing angle, which the video cameras also use.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pitch</td>
+<td><code>0</code></td>
+<td>Tilt in degrees (0–90). <code>0</code> looks straight down; higher values tilt towards the horizon for a 3D view.</td>
+</tr>
+<tr>
+<td>Bearing</td>
+<td><code>0</code></td>
+<td>Rotation in degrees clockwise from north (−180 to 180). <code>90</code> puts east at the top.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="create-animation-advanced">Create Animation <em>(advanced)</em></h3>
+<p><strong>Marker icon</strong> sets what is drawn at each subject's current position:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dot <em>(default)</em></td>
+<td>A flat circle in the subject's colour with a white outline</td>
+</tr>
+<tr>
+<td>3D animal</td>
+<td>A ready-tuned 3D model: elephant, giraffe, cheetah, leopard or lion</td>
+</tr>
+<tr>
+<td>3D model (custom)</td>
+<td>Your own glTF/GLB model (URL or file path), with controls for size, heading and tilt</td>
+</tr>
+<tr>
+<td>None</td>
+<td>No marker; only the trails are drawn</td>
+</tr>
+</tbody>
+</table>
+<h3 id="create-controls-advanced">Create Controls <em>(advanced)</em></h3>
+<p>Sets which parts of the playback bar appear on the interactive map: play/pause, restart, time slider, playback clock, data time, speed button (0.5×, 1×, 2×, 4×), and whether the bar sits at the <strong>bottom</strong> or <strong>top</strong>. All are shown by default. <strong>Time Format</strong> shows the data time as a full date-time, a date (default), or time elapsed since the start.</p>
+<h3 id="create-timeline-animation-advanced">Create Timeline Animation <em>(advanced)</em></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Duration S</td>
+<td><code>30</code> s</td>
+<td>How long playback takes from the first location to the last. The video uses the same length by default.</td>
+</tr>
+<tr>
+<td>Auto Rotate Speed</td>
+<td><code>0</code></td>
+<td>Slowly rotates the map while it plays, in degrees per second. <code>0</code> is off; negative values rotate counter-clockwise.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="animation-video-advanced">Animation Video <em>(advanced)</em></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Camera</td>
+<td>Static</td>
+<td>How the video camera moves (see below)</td>
+</tr>
+<tr>
+<td>Duration</td>
+<td>Auto</td>
+<td><strong>Auto</strong> matches the animation's playback length. Uncheck it to set a fixed length in seconds.</td>
+</tr>
+<tr>
+<td>Resolution</td>
+<td>720p</td>
+<td>A preset (720p, 1080p, 4K) or a custom width and height in pixels</td>
+</tr>
+</tbody>
+</table>
+<p>Every camera frames whatever is animating at the video's size, using the map's pitch and bearing. <strong>Zoom Offset</strong> nudges the automatic framing closer (<code>+1</code> is twice as close) or further away.</p>
+<table>
+<thead>
+<tr>
+<th>Camera</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Static</td>
+<td>Holds one view that fits all the tracks for the whole clip</td>
+</tr>
+<tr>
+<td>Follow the action</td>
+<td>Frames the most recent movement and follows it smoothly. Can rotate to face the direction of travel.</td>
+</tr>
+<tr>
+<td>Orbit</td>
+<td>Circles the centre of all the tracks</td>
+</tr>
+<tr>
+<td>Fit everything so far</td>
+<td>Zooms out as needed to keep everything shown so far in frame</td>
+</tr>
+<tr>
+<td>Cinematic fly-through</td>
+<td>Opens on the whole scene, then follows the action with a slowly turning, tilted camera</td>
+</tr>
+<tr>
+<td>Keyframes</td>
+<td>Flies through waypoints: follow one subject (blank = the longest-running track), or upload a waypoint file (<code>.json</code>, <code>.geojson</code>, <code>.csv</code> or <code>.tsv</code> with lon/lat columns)</td>
+</tr>
+<tr>
+<td>Fly to &amp; around</td>
+<td>Flies to a point (blank = the centre of the data), then circles it</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-run-the-workflow">3. Run the Workflow</h2>
+<p>Click <strong>Submit</strong>. The workflow fetches the observations, cleans them into trajectories, drapes them on the terrain, builds the animated map, then records the video frame by frame in a headless browser.</p>
+<p>Recording the video is usually the slowest step. The default settings give 900 frames (30 seconds at 30 fps). Higher resolutions and longer durations take proportionally longer.</p>
+<hr />
+<h2 id="4-outputs">4. Outputs</h2>
+<p>All files are written to the workflow's results folder (<code>ECOSCOPE_WORKFLOWS_RESULTS</code>).</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>animated_map.html</code></td>
+<td>The interactive animated 3D map, also shown on the dashboard as <strong>Subject movements</strong></td>
+</tr>
+<tr>
+<td><code>animation.mp4</code></td>
+<td>H.264 video of the animation</td>
+</tr>
+<tr>
+<td><code>relocations_&lt;hash&gt;.geoparquet</code></td>
+<td>Cleaned GPS fixes</td>
+</tr>
+<tr>
+<td><code>trajectories_&lt;hash&gt;.geoparquet</code></td>
+<td>Trajectory segments after the segment filter</td>
+</tr>
+</tbody>
+</table>
+<p>The dashboard shows the <strong>Subject movements</strong> map along with the workflow name, description and time range.</p>
+<hr />
+<h2 id="5-troubleshooting">5. Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Likely cause</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No tracks appear</td>
+<td>The subject group name doesn't match EarthRanger exactly, or the group has no fixes in the time range</td>
+</tr>
+<tr>
+<td>A track is broken into disconnected pieces</td>
+<td>The Trajectory Segment Filter is dropping segments as noise; loosen its limits if your data has long gaps or unusual speeds</td>
+</tr>
+<tr>
+<td>Trails float above or sink into the terrain</td>
+<td>Adjust <strong>Terrain Sampling → Offset</strong>. If you changed <strong>Terrain Exaggeration</strong>, the trails are re-draped to match automatically.</td>
+</tr>
+<tr>
+<td>The run takes a long time</td>
+<td>A wide time range, a large group, or a long/high-resolution video. Try 720p and a shorter duration first.</td>
+</tr>
+<tr>
+<td>The 3D model doesn't appear</td>
+<td>Check the <strong>Marker icon</strong> setting. For a custom model, the GLB URL or file must be reachable from the machine running the workflow.</td>
+</tr>
+</tbody>
+</table>
+<p>More in the <a href="https://wildlife-dynamics.github.io/animate-subject-tracks/troubleshooting.html">Troubleshooting guide</a>.</p>
+
+</body>
+</html>

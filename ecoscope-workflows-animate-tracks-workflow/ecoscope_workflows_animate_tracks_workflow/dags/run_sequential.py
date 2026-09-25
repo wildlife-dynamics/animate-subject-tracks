@@ -2,14 +2,12 @@
 import os
 from typing import Any
 
-from ecoscope.platform.tasks.config import set_string_var as set_string_var
 from ecoscope.platform.tasks.config import set_workflow_details as set_workflow_details
 from ecoscope.platform.tasks.filter import set_time_range as set_time_range
 from ecoscope.platform.tasks.groupby import set_groupers as set_groupers
 from ecoscope.platform.tasks.io import (
     get_subjectgroup_observations as get_subjectgroup_observations,
 )
-from ecoscope.platform.tasks.io import persist_df as persist_df
 from ecoscope.platform.tasks.io import persist_text as persist_text
 from ecoscope.platform.tasks.io import set_er_connection as set_er_connection
 from ecoscope.platform.tasks.preprocessing import (
@@ -27,27 +25,38 @@ from ecoscope.platform.tasks.skip import (
 )
 from ecoscope.platform.tasks.skip import any_is_empty_df as any_is_empty_df
 from ecoscope.platform.tasks.skip import never as never
+from ecoscope.platform.tasks.transformation import convert_crs as convert_crs
 from ecoscope.platform.tasks.transformation import map_columns as map_columns
-from ecoscope_workflows_ext_mep.tasks.animate import (
-    configure_video_export as configure_video_export,
+from ecoscope_workflows_ext_custom.tasks.io import (
+    persist_df_wrapper as persist_df_wrapper,
 )
+from ecoscope_workflows_ext_mep.tasks.animate import animate_layer as animate_layer
 from ecoscope_workflows_ext_mep.tasks.animate import (
     create_elevation_decoder as create_elevation_decoder,
+)
+from ecoscope_workflows_ext_mep.tasks.animate import (
+    create_playback_controls as create_playback_controls,
 )
 from ecoscope_workflows_ext_mep.tasks.animate import (
     create_terrain_layer as create_terrain_layer,
 )
 from ecoscope_workflows_ext_mep.tasks.animate import (
+    create_terrain_sampling as create_terrain_sampling,
+)
+from ecoscope_workflows_ext_mep.tasks.animate import (
     create_timeline_animation as create_timeline_animation,
+)
+from ecoscope_workflows_ext_mep.tasks.animate import (
+    create_trips_animation as create_trips_animation,
 )
 from ecoscope_workflows_ext_mep.tasks.animate import (
     create_trips_layer as create_trips_layer,
 )
 from ecoscope_workflows_ext_mep.tasks.animate import (
-    draw_animated_map as draw_animated_map,
+    drape_trips_on_terrain as drape_trips_on_terrain,
 )
 from ecoscope_workflows_ext_mep.tasks.animate import (
-    normalize_timestamps as normalize_timestamps,
+    draw_animated_map as draw_animated_map,
 )
 from ecoscope_workflows_ext_mep.tasks.animate import (
     render_animation as render_animation,
@@ -66,6 +75,9 @@ from ecoscope_workflows_ext_ste.tasks.spatial_operations import (
 )
 from ecoscope_workflows_ext_ste.tasks.spatial_operations import (
     envelope_gdf as envelope_gdf,
+)
+from ecoscope_workflows_ext_ste.tasks.transformation import (
+    add_rgba_from_hex as add_rgba_from_hex,
 )
 from wt_contracts import validate as _validate
 from wt_task import task
@@ -145,23 +157,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
-    subject_group_var = (
-        task(set_string_var)
-        .validate()
-        .set_task_instance_id("subject_group_var")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("subject_group_var") or {}))
-        .call()
-    )
-
     subject_observations = (
         task(get_subjectgroup_observations)
         .validate()
@@ -179,10 +174,9 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             filter="clean",
             client=er_client_name,
             time_range=time_range,
-            subject_group_name=subject_group_var,
             raise_on_empty=False,
             include_details=True,
-            include_subjectsource_details=False,
+            include_subjectsource_details=True,
             **(params.get("subject_observations") or {}),
         )
         .call()
@@ -211,6 +205,11 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
                 "extra__subject__name",
                 "extra__subject__hex",
                 "extra__subject__sex",
+                "extra__created_at",
+                "extra__subject__subject_subtype",
+                "extra__subjectsource__id",
+                "extra__subjectsource__assigned_range",
+                "extra__observation_details",
             ],
             filter_point_coords=[
                 {"x": 180.0, "y": 90.0},
@@ -270,7 +269,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
     )
 
     persist_relocs_geoparquet = (
-        task(persist_df)
+        task(persist_df_wrapper)
         .validate()
         .set_task_instance_id("persist_relocs_geoparquet")
         .handle_errors()
@@ -284,16 +283,17 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(
             df=subject_reloc,
-            filetype="geoparquet",
+            filetypes=["geoparquet"],
+            filename_prefix="relocations",
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            filename="relocations",
+            sanitize=True,
             **(params.get("persist_relocs_geoparquet") or {}),
         )
         .call()
     )
 
     persist_trajs_geoparquet = (
-        task(persist_df)
+        task(persist_df_wrapper)
         .validate()
         .set_task_instance_id("persist_trajs_geoparquet")
         .handle_errors()
@@ -307,9 +307,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(
             df=rename_traj_cols,
-            filetype="geoparquet",
+            filetypes=["geoparquet"],
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            filename="trajectories",
+            filename_prefix="trajectories",
+            sanitize=True,
             **(params.get("persist_trajs_geoparquet") or {}),
         )
         .call()
@@ -383,6 +384,25 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
+    ensure_wgs = (
+        task(convert_crs)
+        .validate()
+        .set_task_instance_id("ensure_wgs")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=rename_traj_cols, crs="EPSG:4326", **(params.get("ensure_wgs") or {})
+        )
+        .call()
+    )
+
     trajs_trips = (
         task(trajectory_to_trips)
         .validate()
@@ -397,18 +417,52 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            trajectory_gdf=rename_traj_cols,
-            subject_name_col="subject_name",
-            subject_hex_col="hex_color",
-            terrain={
-                "zoom": 15,
-                "offset": 30,
-                "cache_dir": None,
-                "ground_elevation": 1500,
-                "elevation_data": "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
-                "elevation_decoder": terrain_exaggeration,
-            },
+            trajectory_gdf=ensure_wgs,
+            groupby_col="groupby_col",
+            keep_cols=["subject_name", "hex_color"],
             **(params.get("trajs_trips") or {}),
+        )
+        .call()
+    )
+
+    terrain_sampling = (
+        task(create_terrain_sampling)
+        .validate()
+        .set_task_instance_id("terrain_sampling")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            elevation_data="https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
+            elevation_decoder=terrain_exaggeration,
+            **(params.get("terrain_sampling") or {}),
+        )
+        .call()
+    )
+
+    drape_terrain = (
+        task(drape_trips_on_terrain)
+        .validate()
+        .set_task_instance_id("drape_terrain")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            trips_gdf=trajs_trips,
+            terrain=terrain_sampling,
+            **(params.get("drape_terrain") or {}),
         )
         .call()
     )
@@ -452,7 +506,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            expansion_factor=1.05,
+            expansion_factor=1.0,
             gdf=trajs_trips,
             **(params.get("zoom_to_envelope") or {}),
         )
@@ -473,19 +527,15 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            pitch=0,
-            bearing=0,
-            max_zoom=15,
-            gdf=zoom_to_envelope,
-            **(params.get("trips_view_state") or {}),
+            max_zoom=15, gdf=zoom_to_envelope, **(params.get("trips_view_state") or {})
         )
         .call()
     )
 
-    normalize_trips = (
-        task(normalize_timestamps)
+    rgba_hex = (
+        task(add_rgba_from_hex)
         .validate()
-        .set_task_instance_id("normalize_trips")
+        .set_task_instance_id("rgba_hex")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -496,7 +546,34 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            target_span=None, df=trajs_trips, **(params.get("normalize_trips") or {})
+            column="hex_color",
+            new_column="rgba_color",
+            df=drape_terrain,
+            **(params.get("rgba_hex") or {}),
+        )
+        .call()
+    )
+
+    trips_animation = (
+        task(create_trips_animation)
+        .validate()
+        .set_task_instance_id("trips_animation")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            comet_ratio=0.95,
+            show_history=True,
+            history_color=[255, 255, 255],
+            fade_history=True,
+            history_opacity=0.85,
+            **(params.get("trips_animation") or {}),
         )
         .call()
     )
@@ -515,16 +592,16 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            geodataframe=normalize_trips,
+            geodataframe=rgba_hex,
             data_url=None,
             layer_style={
                 "get_timestamps": "timestamps",
-                "get_color": "color",
+                "get_color": "rgba_color",
                 "get_width": 2.15,
                 "width_units": "pixels",
                 "width_scale": 1,
                 "width_min_pixels": 1,
-                "width_max_pixels": 5,
+                "width_max_pixels": 4,
                 "cap_rounded": True,
                 "joint_rounded": True,
                 "billboard": False,
@@ -534,8 +611,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             },
             legend={
                 "title": "Subjects",
-                "label_column": "name",
-                "color_column": "color",
+                "label_column": "subject_name",
+                "color_column": "rgba_color",
                 "sort": "ascending",
                 "label_suffix": None,
             },
@@ -544,10 +621,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
-    animation_settings = (
-        task(create_timeline_animation)
+    animate_trips = (
+        task(animate_layer)
         .validate()
-        .set_task_instance_id("animation_settings")
+        .set_task_instance_id("animate_trips")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -558,19 +635,47 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            fade_ratio=1.0,
+            layer=trips_layer,
+            animation=trips_animation,
+            **(params.get("animate_trips") or {}),
+        )
+        .call()
+    )
+
+    create_controls = (
+        task(create_playback_controls)
+        .validate()
+        .set_task_instance_id("create_controls")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(speeds=[0.5, 1, 2, 4], **(params.get("create_controls") or {}))
+        .call()
+    )
+
+    timeline_animation = (
+        task(create_timeline_animation)
+        .validate()
+        .set_task_instance_id("timeline_animation")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
             fps_limit=30,
-            show_history=True,
-            history_color=[255, 255, 255],
-            head_outline_color=[255, 255, 255],
-            history_opacity=1.0,
-            fade_history=True,
-            show_head=True,
-            head_radius=1.75,
-            head_color=None,
-            head_outline_width=1.0,
-            auto_rotate_speed=0.0,
-            **(params.get("animation_settings") or {}),
+            controls=create_controls,
+            **(params.get("timeline_animation") or {}),
         )
         .call()
     )
@@ -589,14 +694,15 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            geo_layers=trips_layer,
+            geo_layers=animate_trips,
             tile_layers=[terrain_layer],
             static=False,
             max_zoom=15,
             title=None,
             legend_style={"placement": "bottom-right"},
             view_state=trips_view_state,
-            animation=animation_settings,
+            widget_id=None,
+            timeline=timeline_animation,
             **(params.get("draw_animation") or {}),
         )
         .call()
@@ -624,23 +730,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
-    video_output_path = (
-        task(configure_video_export)
-        .validate()
-        .set_task_instance_id("video_output_path")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(filename=map_urls, **(params.get("video_output_path") or {}))
-        .call()
-    )
-
     create_animation = (
         task(render_animation)
         .validate()
@@ -654,23 +743,27 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            html_path=video_output_path,
+            html_path=map_urls,
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             out_path="animation.mp4",
             fps=30,
-            device_scale_factor=1,
-            gl="auto",
-            workers=1,
-            capture_format="jpeg",
-            jpeg_quality=92,
-            settle_ms=30,
-            settle_timeout_ms=8000,
-            head_ready_timeout_ms=30000,
-            crf=18,
-            x264_preset="veryfast",
-            start_frac=0.0,
-            end_frac=1.0,
+            start_frac=0,
+            end_frac=1,
             verbose=True,
+            quality={
+                "capture_format": "jpeg",
+                "jpeg_quality": 92,
+                "crf": 18,
+                "x264_preset": "veryfast",
+                "device_scale_factor": 1,
+            },
+            capture={
+                "gl": "auto",
+                "workers": "auto",
+                "settle_ms": 30,
+                "settle_timeout_ms": 8000,
+                "head_ready_timeout_ms": 30000,
+            },
             **(params.get("create_animation") or {}),
         )
         .call()

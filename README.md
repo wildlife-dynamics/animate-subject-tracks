@@ -1,146 +1,179 @@
-# Animate Subject Tracks — User Guide
+# Animate Subject Tracks Workflow
 
-This workflow turns an EarthRanger subject group's GPS history into an animated
-3-D map: colored trails that sweep across real terrain as time passes, with an
-optional exportable video. It's built and run through the **Ecoscope Workflows**
-platform — no coding required to use it.
+Turns an EarthRanger subject group's GPS history into an animated 3D map: each subject's track sweeps across real terrain as time passes, and the same animation is exported as an MP4 video.
+
+Full documentation: **[wildlife-dynamics.github.io/animate-subject-tracks](https://wildlife-dynamics.github.io/animate-subject-tracks/)** (User Guide, Technical Guide and Troubleshooting).
+
+## What it produces
+
+- An **interactive animated 3D map** (`animated_map.html`). Each subject is drawn as a trail in its EarthRanger colour, with a marker at its current position, over satellite imagery draped on 3D terrain. It has a playback bar (play/pause, restart, time slider, speed) and a legend of subject names.
+- An **MP4 video** (`animation.mp4`) of the same animation, recorded with the camera movement you choose.
+- **GeoParquet files** of the cleaned relocations and trajectories, for further analysis.
+- A **dashboard** showing the animated map, with the workflow details and time range.
+
+## Requirements
+
+- An **EarthRanger connection** configured in the workflow runner.
+- The name of a **subject group** in EarthRanger, e.g. `Elephants`. Every subject in the group gets its own track.
+- Internet access while the workflow runs. Terrain elevation tiles (AWS Terrarium) and satellite imagery (Esri World Imagery) are fetched live.
+
+> Longer time ranges and larger subject groups take longer to fetch and to record as video. For a first run, a range of a few days to a few weeks works well.
 
 ---
 
-## 1. What this workflow does
+## 1. Load the Workflow
 
-For a subject group you choose (e.g. "Elephants"), the workflow:
+In the workflow runner, go to **Workflow Templates** and click **Add Workflow Template**. Paste this repository's URL into the **Github Link** field, then click **Add Template**:
 
-1. Connects to your EarthRanger site and pulls location fixes for every
-   subject in the group over a time range you set.
-2. Cleans the data and converts it into movement trajectories.
-3. Renders those trajectories as an animated, terrain-aware 3-D map — each
-   subject gets its own colored trail with a moving "head" marker.
-4. Optionally renders that animation to a downloadable `.mp4` video.
-5. Packages everything into a dashboard you can view, share, or revisit later.
+```
+https://github.com/wildlife-dynamics/animate-subject-tracks.git
+```
 
-## 2. Before you start
+Once added, the workflow appears in the **Workflow Templates** list. Click it to open the configuration form.
 
-You'll need:
+> The card may show **Initializing…** briefly while the environment is set up.
 
-- Access to the **Ecoscope Workflows** platform.
-- An **EarthRanger connection** already configured on the platform (ask your
-  Ecoscope admin if you don't see one in the dropdown).
-- The exact **subject group name** as it appears in EarthRanger (e.g.
-  `Elephants`) — subject groups are managed in EarthRanger, not in this
-  workflow.
-- A rough idea of the **date range** you want to animate. Longer ranges take
-  longer to fetch and render.
+---
 
-## 3. Running the workflow
+## 2. Configure the Workflow
 
-1. Open the Ecoscope Workflows platform and select **Animate Subject Tracks**
-   from the workflow catalog.
-2. Fill in the form (see field-by-field guide below).
-3. Click **Run**.
-4. Wait for the run to complete — you'll see a status indicator while the
-   workflow fetches data and renders the map. Enabling video export adds
-   noticeably more time, since the animation is re-rendered frame-by-frame.
-5. Open the resulting **dashboard** to view your animated map (and video, if
-   you enabled it).
-
-## 4. Filling in the form
-
-The form is organized into sections, top to bottom. Most fields have sensible
-defaults — the only things you truly need to set are the **data source**,
-**time range**, and **subject group name**. Everything under an "Advanced" /
-optional section is safe to leave alone on your first run.
+Only the **Workflow Name**, **Data Source**, **Time Range** and **Subject Group Name** need to be filled in. Every other section is pre-filled with defaults and can be left alone on a first run. Fields marked *advanced* are collapsed on the form.
 
 ### Workflow Details
-| Field | Required? | Notes |
-|---|---|---|
-| **Workflow Name** | Yes | A label for this run, e.g. `Elephants – July 2026`. Helps you find it again later in your run history. |
-| **Workflow Description** | No | Free-text notes about this run. |
+
+| Field | Description |
+|-------|-------------|
+| Workflow Name | A short name to identify this run, e.g. `Elephants – July 2026` |
+| Workflow Description | Optional notes about the run |
 
 ### Connect to EarthRanger
-| Field | Required? | Notes |
-|---|---|---|
-| **Data Source** | Yes | Choose the EarthRanger site/connection to pull data from. |
+
+| Field | Description |
+|-------|-------------|
+| Data Source | The EarthRanger connection to pull tracking data from |
 
 ### Time Range
-| Field | Required? | Notes |
-|---|---|---|
-| **Since** | Yes | Start of the period to animate. |
-| **Until** | Yes | End of the period to animate. |
-| **Timezone** | No | Interpret Since/Until in a specific timezone. |
-| **Time Format** *(advanced)* | No | Only affects how times are displayed elsewhere in the dashboard. |
 
-> **Tip:** the wider the range, the more GPS fixes get pulled and animated —
-> which means a longer run and a longer video. For a first try, a window of a
-> few days to a couple of weeks is a good size.
+| Field | Description |
+|-------|-------------|
+| Since | Start of the period to animate |
+| Until | End of the period to animate |
+| Timezone | Optional timezone for Since/Until |
+| Time Format *(advanced)* | How times are displayed on the dashboard. Default `%d %b %Y %H:%M:%S` |
 
 ### Subject Group
-| Field | Required? | Notes |
-|---|---|---|
-| **Subject Group Name** | Yes (default: `Elephants`) | Must exactly match a subject group name configured in EarthRanger. This determines which subjects' tracks get animated. |
 
-### Trajectory Segment Filter *(advanced, optional)*
-Removes GPS noise by discarding movement segments that are too short, too
-long, too fast, or too slow to be real animal movement (e.g. a GPS glitch
-that implies teleporting 100 km in one second). The defaults work well for
-most terrestrial wildlife — you generally don't need to touch this unless
-you're animating a species with very unusual movement patterns (e.g. birds).
+| Field | Description |
+|-------|-------------|
+| Subject Group Name | The EarthRanger subject group to animate. Must match the group name exactly. A group with mixed subject subtypes can give unexpected results. |
 
-### Terrain Exaggeration *(advanced, optional)*
-- **Exaggeration** — stretches terrain height for visual effect. `1.0` is
-  true-to-scale; `2.0` doubles apparent elevation, useful for making subtle
-  hills/valleys more visible on flat landscapes.
+### Trajectory Segment Filter *(advanced)*
 
-### Animation Settings *(advanced, optional)*
-- **Animation Speed** — how fast simulated time passes per real second of
-  playback. Higher = faster playback.
+Removes GPS noise by dropping track segments whose length, duration or speed falls outside these limits. The defaults suit most terrestrial wildlife.
 
-### Draw Animation *(advanced, optional)*
-- **Head Layer** — swaps the flat colored dot for a 3-D animal model (a
-  bundled elephant model by default) that rotates to face its direction of
-  travel. Off by default. Turn on **Enabled** to use it; the other fields
-  here (size, model orientation, etc.) fine-tune how that 3-D model looks and
-  behaves and can be left at their defaults.
+| Field | Default |
+|-------|---------|
+| Min / Max length | `0.001` m / `100 000` m |
+| Min / Max time | `1` s / `172 800` s (2 days) |
+| Min / Max speed | `0.01` km/h / `500` km/h |
 
-### Video Creation *(optional — off by default)*
-Turn this on to also render the animation as a downloadable `.mp4`, in
-addition to the interactive map.
+### Terrain Exaggeration *(advanced)*
 
-| Field | Notes |
-|---|---|
-| **Enabled** | Turns video rendering on. Leave off if you only want the interactive map (faster run). |
-| **Camera** | How the video's camera moves. Choose one: |
-| **Duration** | Auto-match the animation's own playback length, or set a fixed duration in seconds. |
-| **Resolution** | Output video size — pick a common preset (720p, 1080p, 4K) or specify a custom width/height in pixels. |
+| Field | Default | Description |
+|-------|---------|-------------|
+| Exaggeration | `1.0` | Vertical scale of the 3D terrain. `1.0` is true scale; `2.0` doubles apparent heights, which helps on flat landscapes. |
 
-- **Static** — camera holds one fixed view for the whole video.
-- **Fit** — camera zooms out just enough to keep every point visited so far in frame.
-- **Follow** — camera tracks a subject (or the group) from directly above.
-- **Follow 3D** — like Follow, but tilted for a 3-D chase-cam feel, rotating to match the subject's heading.
-- **Orbit** — camera circles slowly around the center of all the tracks.
-- **Cinematic** — a smooth fly-through that leads the subject and banks with its turns.
-- **Keyframes** — camera flies through a custom path, either auto-derived by following a chosen subject or built from an uploaded waypoint file.
+### Terrain Sampling *(advanced)*
 
-## 5. Understanding your results
+| Field | Default | Description |
+|-------|---------|-------------|
+| Offset | `30` m | Height added above the ground at every track point, so trails sit on top of the terrain rather than inside it |
+| Ground Elevation | `1000` m | Constant ground height used only if elevation tiles can't be read |
 
-When the run finishes, open the dashboard. You'll see:
+### Map Zoom & Extent *(advanced)*
 
-- **Subject movements** — the interactive animated 3-D map. Use the built-in
-  playback controls to play, pause, and scrub through the time range. Each
-  subject appears as its own colored trail with a legend on the map listing
-  subject names and colors.
-- **Video download** *(only if Video Creation was enabled)* — an `.mp4` file
-  of the same animation, suitable for sharing or presentations.
+The map is automatically centred and zoomed to fit every track. These two fields set the viewing angle, which the video cameras also use.
 
-The dashboard also records the workflow name/description, the time range,
-and the subject group you selected, so you (or a colleague) can tell at a
-glance what a given run covers.
+| Field | Default | Description |
+|-------|---------|-------------|
+| Pitch | `0` | Tilt in degrees (0–90). `0` looks straight down; higher values tilt towards the horizon for a 3D view. |
+| Bearing | `0` | Rotation in degrees clockwise from north (−180 to 180). `90` puts east at the top. |
 
-## 6. Troubleshooting
+### Create Animation *(advanced)*
+
+**Marker icon** sets what is drawn at each subject's current position:
+
+| Option | Description |
+|--------|-------------|
+| Dot *(default)* | A flat circle in the subject's colour with a white outline |
+| 3D animal | A ready-tuned 3D model: elephant, giraffe, cheetah, leopard or lion |
+| 3D model (custom) | Your own glTF/GLB model (URL or file path), with controls for size, heading and tilt |
+| None | No marker; only the trails are drawn |
+
+### Create Controls *(advanced)*
+
+Sets which parts of the playback bar appear on the interactive map: play/pause, restart, time slider, playback clock, data time, speed button (0.5×, 1×, 2×, 4×), and whether the bar sits at the **bottom** or **top**. All are shown by default. **Time Format** shows the data time as a full date-time, a date (default), or time elapsed since the start.
+
+### Create Timeline Animation *(advanced)*
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| Duration S | `30` s | How long playback takes from the first location to the last. The video uses the same length by default. |
+| Auto Rotate Speed | `0` | Slowly rotates the map while it plays, in degrees per second. `0` is off; negative values rotate counter-clockwise. |
+
+### Animation Video *(advanced)*
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| Camera | Static | How the video camera moves (see below) |
+| Duration | Auto | **Auto** matches the animation's playback length. Uncheck it to set a fixed length in seconds. |
+| Resolution | 720p | A preset (720p, 1080p, 4K) or a custom width and height in pixels |
+
+Every camera frames whatever is animating at the video's size, using the map's pitch and bearing. **Zoom Offset** nudges the automatic framing closer (`+1` is twice as close) or further away.
+
+| Camera | What it does |
+|--------|--------------|
+| Static | Holds one view that fits all the tracks for the whole clip |
+| Follow the action | Frames the most recent movement and follows it smoothly. Can rotate to face the direction of travel. |
+| Orbit | Circles the centre of all the tracks |
+| Fit everything so far | Zooms out as needed to keep everything shown so far in frame |
+| Cinematic fly-through | Opens on the whole scene, then follows the action with a slowly turning, tilted camera |
+| Keyframes | Flies through waypoints: follow one subject (blank = the longest-running track), or upload a waypoint file (`.json`, `.geojson`, `.csv` or `.tsv` with lon/lat columns) |
+| Fly to & around | Flies to a point (blank = the centre of the data), then circles it |
+
+---
+
+## 3. Run the Workflow
+
+Click **Submit**. The workflow fetches the observations, cleans them into trajectories, drapes them on the terrain, builds the animated map, then records the video frame by frame in a headless browser.
+
+Recording the video is usually the slowest step. The default settings give 900 frames (30 seconds at 30 fps). Higher resolutions and longer durations take proportionally longer.
+
+---
+
+## 4. Outputs
+
+All files are written to the workflow's results folder (`ECOSCOPE_WORKFLOWS_RESULTS`).
+
+| File | Description |
+|------|-------------|
+| `animated_map.html` | The interactive animated 3D map, also shown on the dashboard as **Subject movements** |
+| `animation.mp4` | H.264 video of the animation |
+| `relocations_<hash>.geoparquet` | Cleaned GPS fixes |
+| `trajectories_<hash>.geoparquet` | Trajectory segments after the segment filter |
+
+The dashboard shows the **Subject movements** map along with the workflow name, description and time range.
+
+---
+
+## 5. Troubleshooting
 
 | Symptom | Likely cause |
-|---|---|
-| The map is empty / no trails appear | The subject group name doesn't match EarthRanger exactly, or there are no location fixes for that group in the chosen time range. |
-| Run takes a long time | The time range is very wide, the subject group is large, or Video Creation is enabled — all three multiply how much data is fetched and rendered. |
-| A subject's trail looks broken into short disconnected pieces | The Trajectory Segment Filter (advanced) may be discarding segments as noise. Only adjust this if you understand your data's typical fix intervals and speeds. |
-| The 3-D animal model doesn't appear | The **Head Layer** toggle under "Draw Animation" is off by default — enable it to render 3-D models instead of flat dots. |
+|---------|--------------|
+| No tracks appear | The subject group name doesn't match EarthRanger exactly, or the group has no fixes in the time range |
+| A track is broken into disconnected pieces | The Trajectory Segment Filter is dropping segments as noise; loosen its limits if your data has long gaps or unusual speeds |
+| Trails float above or sink into the terrain | Adjust **Terrain Sampling → Offset**. If you changed **Terrain Exaggeration**, the trails are re-draped to match automatically. |
+| The run takes a long time | A wide time range, a large group, or a long/high-resolution video. Try 720p and a shorter duration first. |
+| The 3D model doesn't appear | Check the **Marker icon** setting. For a custom model, the GLB URL or file must be reachable from the machine running the workflow. |
+
+More in the [Troubleshooting guide](https://wildlife-dynamics.github.io/animate-subject-tracks/troubleshooting.html).

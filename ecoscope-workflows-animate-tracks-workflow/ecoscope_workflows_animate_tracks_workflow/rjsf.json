@@ -75,27 +75,21 @@
       "description": "Choose the period of time to analyze.",
       "title": "Time Range"
     },
-    "Subject Group": {
-      "type": "object",
-      "description": "Choose subject group to generate collar voltage charts and overall speedmap",
-      "ecoscope:task_group": true,
+    "subject_observations": {
+      "additionalProperties": false,
       "properties": {
-        "subject_group_var": {
-          "additionalProperties": false,
-          "properties": {
-            "var": {
-              "title": "Subject Group Name",
-              "type": "string",
-              "default": "Elephants"
-            }
-          },
-          "required": [
-            "var"
-          ],
-          "type": "object",
-          "title": "Set subject group name"
+        "subject_group_name": {
+          "title": "Subject Group Name",
+          "type": "string",
+          "description": "\u26a0\ufe0f The use of a group with mixed subtypes could lead to unexpected results"
         }
-      }
+      },
+      "required": [
+        "subject_group_name"
+      ],
+      "type": "object",
+      "title": "Subject Group",
+      "description": "Choose the subject group whose movements will be animated. Each subject in the group is drawn as its own track."
     },
     "convert_to_trajs": {
       "additionalProperties": false,
@@ -121,7 +115,8 @@
       },
       "required": [],
       "type": "object",
-      "title": "Trajectory Segment Filter"
+      "title": "Trajectory Segment Filter",
+      "description": "Clean the tracks before animating by removing segments that are too long, too short, too slow or too fast to be real movement, such as GPS jumps."
     },
     "terrain_exaggeration": {
       "additionalProperties": false,
@@ -137,145 +132,283 @@
       },
       "type": "object",
       "required": [],
-      "title": "Terrain Exaggeration"
+      "title": "Terrain Exaggeration",
+      "description": "Control how strongly hills and valleys are raised on the 3D terrain. Increase it to make relief easier to see in flat landscapes."
     },
-    "animation_settings": {
+    "terrain_sampling": {
       "additionalProperties": false,
       "properties": {
-        "animation_speed": {
-          "default": 1000,
-          "minimum": 0.0,
-          "title": "Animation Speed",
+        "offset": {
+          "default": 30,
+          "title": "Offset",
           "type": "number",
+          "description": "Metres added above the sampled ground at every vertex.",
+          "ecoscope:advanced": true
+        },
+        "ground_elevation": {
+          "default": 1000.0,
+          "title": "Ground Elevation",
+          "type": "number",
+          "description": "Constant ground used only if DEM sampling fails.",
           "ecoscope:advanced": true
         }
       },
       "type": "object",
       "required": [],
-      "title": "Animation Settings"
+      "title": "Terrain Sampling",
+      "description": "Control how tracks are draped onto the 3D terrain so they sit on the ground surface rather than floating above it or disappearing below it."
     },
-    "draw_animation": {
+    "Map Zoom & Extent": {
+      "type": "object",
+      "description": "Calculate the geographic extent of the movement tracks and determine an appropriate zoom level and center point for the map. This ensures that all tracks are visible and well-framed when the map is rendered.",
+      "ecoscope:task_group": true,
+      "properties": {
+        "trips_view_state": {
+          "additionalProperties": false,
+          "properties": {
+            "pitch": {
+              "default": 0,
+              "maximum": 90,
+              "minimum": 0,
+              "title": "Pitch",
+              "type": "integer",
+              "description": "Tilt of the map in degrees. 0 looks straight down; higher values tilt the view towards the horizon for a 3D look at the terrain. The video cameras use this tilt too.",
+              "ecoscope:advanced": true
+            },
+            "bearing": {
+              "default": 0,
+              "maximum": 180,
+              "minimum": -180,
+              "title": "Bearing",
+              "type": "integer",
+              "description": "Rotation of the map in degrees clockwise from north. 0 keeps north at the top, 90 puts east at the top, and negative values rotate counter-clockwise. The video cameras use this rotation too.",
+              "ecoscope:advanced": true
+            }
+          },
+          "required": [],
+          "type": "object",
+          "title": ""
+        }
+      }
+    },
+    "trips_animation": {
       "additionalProperties": false,
       "properties": {
-        "head_layer": {
-          "allOf": [
+        "head": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DotMarker"
+            },
+            {
+              "$ref": "#/$defs/AnimalModelMarker"
+            },
             {
               "$ref": "#/$defs/ScenegraphLayerDefinition"
+            },
+            {
+              "$ref": "#/$defs/NoMarker"
             }
           ],
           "default": {
-            "enabled": false,
-            "glb": "https://raw.githubusercontent.com/wildlife-dynamics/animate_subject_tracks/main/african_bush_elephant.glb",
-            "size_scale": 50.0,
-            "size_min_pixels": 12.0,
-            "size_max_pixels": 75.0,
-            "face_heading": true,
-            "yaw_offset": 0.0,
-            "model_pitch": 90.0,
-            "model_roll": 0.0,
-            "smooth_samples": 2,
-            "terrain_pitch": false,
-            "terrain_pitch_scale": 1.0,
-            "min_move_m": 3.0,
-            "pbr_lighting": true,
-            "tint": [
-              220,
-              220,
+            "marker": "dot",
+            "get_radius": 6.0,
+            "radius_units": "pixels",
+            "get_fill_color": null,
+            "stroked": true,
+            "get_line_color": [
+              255,
+              255,
               255
             ],
-            "use_track_color": true
+            "get_line_width": 1.5,
+            "line_width_units": "pixels",
+            "opacity": 1
           },
-          "title": "Head Layer",
-          "description": "3D glTF/GLB head model settings. Enable with the 'enabled' checkbox.",
+          "title": "Marker icon",
+          "description": "Marker drawn at each subject's current position: a flat dot, a preset 3D animal, your own 3D glTF/GLB model, or none.",
           "ecoscope:advanced": true
         }
       },
       "type": "object",
       "required": [],
-      "title": "Draw Animation"
+      "title": "Create Animation",
+      "description": "Choose the marker shown at each subject's current position as its track plays."
     },
-    "Video Creation": {
-      "type": "object",
-      "description": "Optionally render the animated map as a video file. Enable the toggle to turn on video creation.",
-      "ecoscope:task_group": true,
+    "create_controls": {
+      "additionalProperties": false,
       "properties": {
-        "video_output_path": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": false,
-              "title": "Enabled",
-              "type": "boolean"
-            }
-          },
-          "type": "object",
-          "required": [],
-          "title": "Configure video export"
+        "visible": {
+          "default": true,
+          "title": "Visible",
+          "type": "boolean",
+          "description": "Show the playback bar at all.",
+          "ecoscope:advanced": true
         },
-        "create_animation": {
-          "additionalProperties": false,
-          "properties": {
-            "camera": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/StaticCamera"
-                },
-                {
-                  "$ref": "#/$defs/FollowCamera"
-                },
-                {
-                  "$ref": "#/$defs/Follow3DCamera"
-                },
-                {
-                  "$ref": "#/$defs/OrbitCamera"
-                },
-                {
-                  "$ref": "#/$defs/FitCamera"
-                },
-                {
-                  "$ref": "#/$defs/CinematicCamera"
-                },
-                {
-                  "$ref": "#/$defs/KeyframesCamera"
-                }
-              ],
-              "default": {
-                "type_": "static"
-              },
-              "title": "Camera"
-            },
-            "duration": {
-              "allOf": [
-                {
-                  "$ref": "#/$defs/DurationConfig"
-                }
-              ],
-              "default": {
-                "auto": true,
-                "seconds": 75.0
-              },
-              "title": "Duration"
-            },
-            "resolution": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/PresetResolution"
-                },
-                {
-                  "$ref": "#/$defs/CustomResolution"
-                }
-              ],
-              "default": {
-                "preset": "720p"
-              },
-              "title": "Resolution"
-            }
-          },
-          "required": [],
-          "type": "object",
-          "title": "Render animation video"
+        "show_play": {
+          "default": true,
+          "title": "Show Play",
+          "type": "boolean",
+          "description": "Play/pause button.",
+          "ecoscope:advanced": true
+        },
+        "show_restart": {
+          "default": true,
+          "title": "Show Restart",
+          "type": "boolean",
+          "description": "Restart button.",
+          "ecoscope:advanced": true
+        },
+        "show_scrubber": {
+          "default": true,
+          "title": "Show Scrubber",
+          "type": "boolean",
+          "description": "Slider for jumping to any moment.",
+          "ecoscope:advanced": true
+        },
+        "show_clock": {
+          "default": true,
+          "title": "Show Clock",
+          "type": "boolean",
+          "description": "Playback position / total length, e.g. 0:12 / 0:30.",
+          "ecoscope:advanced": true
+        },
+        "show_time": {
+          "default": true,
+          "title": "Show Time",
+          "type": "boolean",
+          "description": "Current time in the data.",
+          "ecoscope:advanced": true
+        },
+        "time_format": {
+          "default": "date",
+          "enum": [
+            "datetime",
+            "date",
+            "elapsed"
+          ],
+          "title": "Time Format",
+          "type": "string",
+          "description": "Data time as 'datetime' (2024-01-01 06:00 UTC), 'date', or 'elapsed' since the start.",
+          "ecoscope:advanced": true
+        },
+        "show_speed": {
+          "default": true,
+          "title": "Show Speed",
+          "type": "boolean",
+          "description": "Button cycling through `speeds`.",
+          "ecoscope:advanced": true
+        },
+        "position": {
+          "default": "bottom",
+          "enum": [
+            "bottom",
+            "top"
+          ],
+          "title": "Position",
+          "type": "string",
+          "description": "Where the bar sits on the map.",
+          "ecoscope:advanced": true
         }
-      }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Create Controls",
+      "description": "Choose which playback controls appear on the interactive map, such as play/pause, the time slider and speed buttons, and where they sit."
+    },
+    "timeline_animation": {
+      "additionalProperties": false,
+      "properties": {
+        "duration_s": {
+          "default": 30.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Duration S",
+          "type": "number",
+          "description": "Playback length in seconds, from the start of the timeline to its end.",
+          "ecoscope:advanced": true
+        },
+        "auto_rotate_speed": {
+          "default": 0.0,
+          "title": "Auto Rotate Speed",
+          "type": "number",
+          "description": "Camera rotation speed in degrees per second. 0 = off; positive = clockwise; negative = counter-clockwise.",
+          "ecoscope:advanced": true
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Create Timeline Animation",
+      "description": "Set how long the animation takes to play from the first location to the last, and whether the map slowly rotates while it plays."
+    },
+    "create_animation": {
+      "additionalProperties": false,
+      "properties": {
+        "camera": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StaticCamera"
+            },
+            {
+              "$ref": "#/$defs/FollowCamera"
+            },
+            {
+              "$ref": "#/$defs/OrbitCamera"
+            },
+            {
+              "$ref": "#/$defs/FitCamera"
+            },
+            {
+              "$ref": "#/$defs/CinematicCamera"
+            },
+            {
+              "$ref": "#/$defs/KeyframesCamera"
+            },
+            {
+              "$ref": "#/$defs/FlyAroundCamera"
+            }
+          ],
+          "default": {
+            "type_": "static",
+            "zoom_offset": 0.0
+          },
+          "title": "Camera",
+          "description": "Camera for the clip. Every option frames whatever is animating (trips, points, polygons, ...) at the video's size, with the map's pitch and bearing: Static (whole scene), Follow the action, Orbit, Fit everything so far, Cinematic fly-through, Keyframes (waypoints, or follow one subject), or Fly to & around.",
+          "ecoscope:advanced": true
+        },
+        "duration": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/DurationConfig"
+            }
+          ],
+          "default": {
+            "auto": true,
+            "seconds": 30.0
+          },
+          "title": "Duration",
+          "description": "Video duration. 'auto' uses the animation's own playback length (duration_s).",
+          "ecoscope:advanced": true
+        },
+        "resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PresetResolution"
+            },
+            {
+              "$ref": "#/$defs/CustomResolution"
+            }
+          ],
+          "default": {
+            "preset": "720p"
+          },
+          "title": "Resolution",
+          "description": "Output video resolution: a preset (720p/1080p/4K) or 'custom' width/height.",
+          "ecoscope:advanced": true
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Animation Video",
+      "description": "Export the animation as an MP4 video. Choose how the camera moves, how long the video runs and its resolution."
     }
   },
   "$defs": {
@@ -368,42 +501,229 @@
       "title": "TrajectorySegmentFilter",
       "type": "object"
     },
-    "ScenegraphLayerDefinition": {
-      "description": "An animated 3D head built from a glTF/GLB model (deck.gl ScenegraphLayer).\n\nCreate one with create_scenegraph_layer() and pass it to\ndraw_animated_map(head_layer=...). Its position and heading are driven per-frame\nfrom the TripsLayer, so it follows each subject's current location. `glb` accepts\nan http(s) URL, a `data:` URI, or a local file path (read and embedded as a data\nURI). None -> bundled default (the elephant model). If the ScenegraphLayer\nconstructor or the glTF loader can't be resolved at runtime, the head silently\nfalls back to the flat ScatterplotLayer dot.\nSee https://deck.gl/docs/api-reference/mesh-layers/scenegraph-layer for more info.",
+    "AnimalModelMarker": {
+      "description": "A ready-tuned 3D animal model: pick the animal, everything else is preset.\n\nFor your own GLB, or to tune orientation/size by hand, use the custom 3D model\n(ScenegraphLayerDefinition) instead.",
       "properties": {
-        "enabled": {
-          "default": false,
-          "description": "Enable the 3D head model. When off, subjects render as flat dots.",
+        "marker": {
+          "const": "animal",
+          "default": "animal",
+          "enum": [
+            "animal"
+          ],
+          "title": "Marker icon",
+          "type": "string"
+        },
+        "animal": {
+          "default": "elephant",
+          "description": "Which preset model to show.",
+          "enum": [
+            "elephant",
+            "giraffe",
+            "cheetah",
+            "leopard",
+            "lion"
+          ],
+          "title": "Animal",
+          "type": "string"
+        },
+        "size": {
+          "default": 1.0,
+          "description": "Multiplier on the preset size (2 = twice as big).",
           "ecoscope:advanced": true,
-          "title": "Enabled",
+          "exclusiveMinimum": 0.0,
+          "title": "Size",
+          "type": "number"
+        },
+        "use_track_color": {
+          "default": true,
+          "description": "Colour by each subject's track.",
+          "ecoscope:advanced": true,
+          "title": "Use subject color",
           "type": "boolean"
         },
-        "glb": {
-          "default": "https://raw.githubusercontent.com/wildlife-dynamics/animate_subject_tracks/main/african_bush_elephant.glb",
-          "description": "GLB source: an http(s) URL, a data: URI, or a local file path. None -> bundled default model (elephant).",
+        "pbr_lighting": {
+          "default": true,
+          "description": "Uncheck for flat shading (truer colours).",
           "ecoscope:advanced": true,
-          "title": "Glb",
+          "title": "Realistic lighting (PBR)",
+          "type": "boolean"
+        }
+      },
+      "title": "3D animal",
+      "type": "object"
+    },
+    "DotMarker": {
+      "description": "Flat circle at each subject's current position (deck.gl ScatterplotLayer).\n\nField names mirror PointLayerStyle. Colours are constants rather than column accessors\nbecause the marker's data is rebuilt in the browser every frame.",
+      "properties": {
+        "marker": {
+          "const": "dot",
+          "default": "dot",
+          "enum": [
+            "dot"
+          ],
+          "title": "Marker icon",
+          "type": "string"
+        },
+        "get_radius": {
+          "default": 6.0,
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.0,
+          "title": "Get Radius",
+          "type": "number"
+        },
+        "radius_units": {
+          "default": "pixels",
+          "ecoscope:advanced": true,
+          "enum": [
+            "meters",
+            "pixels"
+          ],
+          "title": "Radius Units",
+          "type": "string"
+        },
+        "get_fill_color": {
+          "default": null,
+          "description": "RGB fill. None -> each subject's own track colour.",
+          "ecoscope:advanced": true,
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "title": "Get Fill Color",
+          "type": "array"
+        },
+        "stroked": {
+          "default": true,
+          "ecoscope:advanced": true,
+          "title": "Stroked",
+          "type": "boolean"
+        },
+        "get_line_color": {
+          "default": [
+            255,
+            255,
+            255
+          ],
+          "ecoscope:advanced": true,
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "title": "Get Line Color",
+          "type": "array"
+        },
+        "get_line_width": {
+          "default": 1.5,
+          "ecoscope:advanced": true,
+          "minimum": 0.0,
+          "title": "Get Line Width",
+          "type": "number"
+        },
+        "line_width_units": {
+          "default": "pixels",
+          "ecoscope:advanced": true,
+          "enum": [
+            "meters",
+            "pixels"
+          ],
+          "title": "Line Width Units",
+          "type": "string"
+        },
+        "opacity": {
+          "default": 1,
+          "ecoscope:advanced": true,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Opacity",
+          "type": "number"
+        }
+      },
+      "title": "Dot",
+      "type": "object"
+    },
+    "NoMarker": {
+      "description": "No marker at the current position; only the trails are drawn.",
+      "properties": {
+        "marker": {
+          "const": "none",
+          "default": "none",
+          "enum": [
+            "none"
+          ],
+          "title": "Marker icon",
+          "type": "string"
+        }
+      },
+      "title": "None",
+      "type": "object"
+    },
+    "ScenegraphLayerDefinition": {
+      "description": "An animated 3D head built from a glTF/GLB model (deck.gl ScenegraphLayer).\n\nCreate one with create_scenegraph_layer() and use it as\nTripsAnimation.head. Its position and heading are driven per-frame\nfrom the TripsLayer, so it follows each subject's current location. `glb` accepts\nan http(s) URL, a `data:` URI, or a local file path (read and embedded as a data\nURI). None -> the preset elephant model. If the ScenegraphLayer\nconstructor or the glTF loader can't be resolved at runtime, the head silently\nfalls back to the flat ScatterplotLayer dot. For a ready-tuned animal, use\nAnimalModelMarker instead.\nSee https://deck.gl/docs/api-reference/mesh-layers/scenegraph-layer for more info.",
+      "properties": {
+        "marker": {
+          "const": "model",
+          "default": "model",
+          "enum": [
+            "model"
+          ],
+          "title": "Marker icon",
+          "type": "string"
+        },
+        "glb": {
+          "default": null,
+          "description": "GLB source: an http(s) URL, a data: URI, or a local file path. None -> the preset elephant model.",
+          "ecoscope:advanced": true,
+          "title": "3D model (GLB)",
           "type": "string"
         },
         "size_scale": {
           "default": 50.0,
-          "description": "ScenegraphLayer sizeScale. Tune to your scene.",
+          "description": "Model size multiplier. Tune to your scene.",
           "ecoscope:advanced": true,
-          "title": "Size Scale",
+          "exclusiveMinimum": 0.0,
+          "title": "Size scale",
           "type": "number"
         },
         "size_min_pixels": {
           "default": 12.0,
           "description": "Clamp the on-screen model to at least this many pixels so it stays visible when zoomed out.",
           "ecoscope:advanced": true,
-          "title": "Size Min Pixels",
+          "maximum": 200.0,
+          "minimum": 1.0,
+          "title": "Min size (px)",
           "type": "number"
         },
         "size_max_pixels": {
           "default": 75.0,
-          "description": "Optional upper clamp on the model's on-screen size in pixels.",
+          "description": "Upper clamp on the model's on-screen size in pixels. Must be at least Min size.",
           "ecoscope:advanced": true,
-          "title": "Size Max Pixels",
+          "maximum": 500.0,
+          "minimum": 1.0,
+          "title": "Max size (px)",
           "type": "number"
         },
         "face_heading": {
@@ -464,9 +784,9 @@
         },
         "pbr_lighting": {
           "default": true,
-          "description": "Physically-based lighting ('pbr'); False -> flat shading.",
+          "description": "Shade the model with physically-based lighting. Uncheck for flat shading, which shows subject colors more accurately.",
           "ecoscope:advanced": true,
-          "title": "Pbr Lighting",
+          "title": "Realistic lighting (PBR)",
           "type": "boolean"
         },
         "tint": {
@@ -487,15 +807,88 @@
           "default": true,
           "description": "Colour the model with each subject's track colour. False -> use `tint` (or the model's own materials). Note: the colour multiplies the model's material, so it reads truest with a light/neutral glb and flat lighting (pbr_lighting=False).",
           "ecoscope:advanced": true,
-          "title": "Use Track Color",
+          "title": "Use subject color",
           "type": "boolean"
         }
       },
-      "title": "ScenegraphLayerDefinition",
+      "title": "3D model (custom)",
+      "type": "object"
+    },
+    "CameraKeyframe": {
+      "description": "One waypoint on a user-defined camera path.\n\nOnly ``lon``/``lat`` are required. ``t`` places the keyframe on the clip\ntimeline (0 = first captured frame, 1 = last); when omitted on every\nkeyframe they are spaced evenly. ``zoom``/``pitch``/``bearing`` left as\nNone are interpolated between the nearest keyframes that define them, or\nfall back to the whole-scene framing (zoom) and the map's pitch/bearing.",
+      "properties": {
+        "lon": {
+          "description": "Longitude of the camera look-at point.",
+          "title": "Lon",
+          "type": "number"
+        },
+        "lat": {
+          "description": "Latitude of the camera look-at point.",
+          "title": "Lat",
+          "type": "number"
+        },
+        "t": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Position on the clip timeline (0 = start, 1 = end). Any monotonically increasing numbers work (they are normalized to 0\u20131); leave blank on every keyframe to space them evenly.",
+          "title": "T"
+        },
+        "zoom": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Zoom level at this keyframe. Leave blank to blend from neighbouring keyframes, or fit the whole scene if none set it.",
+          "title": "Zoom"
+        },
+        "pitch": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Camera tilt in degrees at this keyframe. Leave blank to blend from neighbouring keyframes, or use the map's pitch if none set it.",
+          "title": "Pitch"
+        },
+        "bearing": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Camera heading in degrees at this keyframe. Leave blank to blend from neighbouring keyframes, or use the map's bearing if none set it.",
+          "title": "Bearing"
+        }
+      },
+      "required": [
+        "lon",
+        "lat"
+      ],
+      "title": "CameraKeyframe",
       "type": "object"
     },
     "CinematicCamera": {
-      "description": "Camera does a smooth fly-through: leads the subject, banks its bearing,\nand optionally flies in from altitude at the start.\n\nFaithful to the Mapbox \"cinematic route\" technique, expressed in deck.gl's\nMapView.",
+      "description": "Fly-through: opens on the whole scene, then follows the action with a slowly\nturning, tilted camera (after the Mapbox 'cinematic route' technique).",
       "properties": {
         "type_": {
           "const": "cinematic",
@@ -503,11 +896,81 @@
           "enum": [
             "cinematic"
           ],
-          "title": "Type ",
+          "title": "Camera",
           "type": "string"
+        },
+        "zoom_offset": {
+          "default": 0.0,
+          "description": "Zoom levels added to the automatic framing (+1 = twice as close).",
+          "ecoscope:advanced": true,
+          "title": "Zoom Offset",
+          "type": "number"
+        },
+        "follow_window": {
+          "default": 0.1,
+          "description": "Share of the timeline treated as 'recent' when framing.",
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "title": "Follow Window",
+          "type": "number"
+        },
+        "follow_smoothing": {
+          "default": 0.25,
+          "description": "Share of the gap to the action closed every 1/30 s: low = smooth but laggy, 1 = snaps to it. Independent of fps.",
+          "ecoscope:advanced": true,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Follow Smoothing",
+          "type": "number"
+        },
+        "lead_frac": {
+          "default": 0.0,
+          "description": "Look ahead by this share of the timeline, so the camera leads.",
+          "ecoscope:advanced": true,
+          "maximum": 0.5,
+          "minimum": 0.0,
+          "title": "Lead Frac",
+          "type": "number"
+        },
+        "bearing_mode": {
+          "default": "rotate",
+          "description": "'rotate' turns at a constant rate, 'heading' faces the direction of travel, 'fixed' keeps the map's bearing.",
+          "ecoscope:advanced": true,
+          "enum": [
+            "rotate",
+            "heading",
+            "fixed"
+          ],
+          "title": "Bearing Mode",
+          "type": "string"
+        },
+        "rotate_deg": {
+          "default": 45.0,
+          "description": "Total turn over the clip for bearing_mode='rotate'.",
+          "ecoscope:advanced": true,
+          "title": "Rotate Deg",
+          "type": "number"
+        },
+        "intro_frac": {
+          "default": 0.12,
+          "description": "Share of the clip spent flying in from the whole-scene view.",
+          "ecoscope:advanced": true,
+          "maximum": 0.5,
+          "minimum": 0.0,
+          "title": "Intro Frac",
+          "type": "number"
+        },
+        "fit_padding": {
+          "default": 80,
+          "description": "Padding in pixels around the action.",
+          "ecoscope:advanced": true,
+          "minimum": 0,
+          "title": "Fit Padding",
+          "type": "integer"
         }
       },
-      "title": "CinematicCamera",
+      "title": "Cinematic fly-through",
       "type": "object"
     },
     "CustomResolution": {
@@ -549,9 +1012,10 @@
           "type": "boolean"
         },
         "seconds": {
-          "default": 75.0,
-          "description": "Video duration in seconds.",
-          "title": "Seconds",
+          "default": 30.0,
+          "description": "Video duration in seconds. Only used when 'Auto' is unchecked.",
+          "exclusiveMinimum": 0.0,
+          "title": "Duration (seconds)",
           "type": "number"
         }
       },
@@ -559,7 +1023,7 @@
       "type": "object"
     },
     "FitCamera": {
-      "description": "Camera zooms to keep every point visited so far in frame.\n\nZoom is always computed from the visited bounds (there's no zoom\noverride); pitch and bearing can still be fixed.",
+      "description": "Zooms to keep everything shown so far in frame.",
       "properties": {
         "type_": {
           "const": "fit",
@@ -567,31 +1031,115 @@
           "enum": [
             "fit"
           ],
-          "title": "Type ",
+          "title": "Camera",
           "type": "string"
+        },
+        "zoom_offset": {
+          "default": 0.0,
+          "description": "Zoom levels added to the automatic framing (+1 = twice as close).",
+          "ecoscope:advanced": true,
+          "title": "Zoom Offset",
+          "type": "number"
+        },
+        "fit_padding": {
+          "default": 80,
+          "description": "Padding in pixels around the data.",
+          "ecoscope:advanced": true,
+          "minimum": 0,
+          "title": "Fit Padding",
+          "type": "integer"
         }
       },
-      "title": "FitCamera",
+      "title": "Fit everything so far",
       "type": "object"
     },
-    "Follow3DCamera": {
-      "description": "Camera tracks a subject (or the group) in a tilted, 3D chase-cam view.\n\nLike FollowCamera, but pitched by default and able to rotate its heading\nto match the tracked subject's direction of travel (heading_lock).",
+    "FlyAroundCamera": {
+      "description": "Fly to a point, then circle it -- the Google Maps 3D flyCameraTo + flyCameraAround pair.\n\nThe camera is described the Google way (center, altitude, range, tilt, heading) and\nconverted to deck's view state. The fly-to uses deck's FlyToInterpolator, the same\nzoom-out-and-back-in arc; the orbit then turns at a constant rate for `rounds` turns.\nUnset values come from the data (center, framing) and the map (tilt, heading).",
       "properties": {
         "type_": {
-          "const": "follow_3d",
-          "default": "follow_3d",
+          "const": "fly_around",
+          "default": "fly_around",
           "enum": [
-            "follow_3d"
+            "fly_around"
           ],
-          "title": "Type ",
+          "title": "Camera",
           "type": "string"
+        },
+        "zoom_offset": {
+          "default": 0.0,
+          "description": "Zoom levels added to the automatic framing (+1 = twice as close).",
+          "ecoscope:advanced": true,
+          "title": "Zoom Offset",
+          "type": "number"
+        },
+        "lon": {
+          "default": null,
+          "description": "Center longitude. Leave blank to use the center of the data.",
+          "ge": -180,
+          "le": 180,
+          "title": "Lon",
+          "type": "number"
+        },
+        "lat": {
+          "default": null,
+          "description": "Center latitude. Leave blank to use the center of the data.",
+          "ge": -90,
+          "le": 90,
+          "title": "Lat",
+          "type": "number"
+        },
+        "altitude": {
+          "default": null,
+          "description": "Height of the center point in metres. Leave blank to use the data's mean height, so the camera circles draped tracks rather than a point under the terrain.",
+          "ecoscope:advanced": true,
+          "title": "Altitude",
+          "type": "number"
+        },
+        "range_m": {
+          "default": null,
+          "description": "Camera distance from the center in metres. Leave blank to fit the data.",
+          "ecoscope:advanced": true,
+          "gt": 0,
+          "title": "Range M",
+          "type": "number"
+        },
+        "tilt": {
+          "default": null,
+          "description": "Tilt on arrival (0 = straight down). Leave blank to use the map's pitch.",
+          "ecoscope:advanced": true,
+          "ge": 0,
+          "le": 80,
+          "title": "Tilt",
+          "type": "number"
+        },
+        "heading": {
+          "default": null,
+          "description": "Compass heading on arrival. Leave blank to use the map's bearing.",
+          "ecoscope:advanced": true,
+          "title": "Heading",
+          "type": "number"
+        },
+        "fly_frac": {
+          "default": 0.25,
+          "description": "Share of the clip spent flying in from the whole-scene view. 0 -> start at the target.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Fly Frac",
+          "type": "number"
+        },
+        "rounds": {
+          "default": 1.0,
+          "description": "Full turns around the center after arriving. 0 -> hold.",
+          "minimum": 0.0,
+          "title": "Rounds",
+          "type": "number"
         }
       },
-      "title": "Follow3DCamera",
+      "title": "Fly to & around",
       "type": "object"
     },
     "FollowCamera": {
-      "description": "Camera tracks a subject (or the group) in a flat, top-down-ish view.\n\nLongitude/latitude follow the tracked subject(s) every frame; pitch stays\nlevel (0) unless overridden and bearing stays fixed. For a tilted, 3D\nchase-cam that can also rotate with the subject's heading, use\nFollow3DCamera instead.",
+      "description": "Follows the action: frames whatever animated in the last `follow_window` of the\ntimeline, re-fitting smoothly as it moves.",
       "properties": {
         "type_": {
           "const": "follow",
@@ -599,15 +1147,55 @@
           "enum": [
             "follow"
           ],
-          "title": "Type ",
+          "title": "Camera",
           "type": "string"
+        },
+        "zoom_offset": {
+          "default": 0.0,
+          "description": "Zoom levels added to the automatic framing (+1 = twice as close).",
+          "ecoscope:advanced": true,
+          "title": "Zoom Offset",
+          "type": "number"
+        },
+        "follow_window": {
+          "default": 0.1,
+          "description": "Share of the timeline treated as 'recent' when framing.",
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "title": "Follow Window",
+          "type": "number"
+        },
+        "follow_smoothing": {
+          "default": 0.25,
+          "description": "Share of the gap to the action closed every 1/30 s: low = smooth but laggy, 1 = snaps to it. Independent of fps.",
+          "ecoscope:advanced": true,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Follow Smoothing",
+          "type": "number"
+        },
+        "heading_lock": {
+          "default": false,
+          "description": "Rotate the camera to face the direction of travel.",
+          "ecoscope:advanced": true,
+          "title": "Heading Lock",
+          "type": "boolean"
+        },
+        "fit_padding": {
+          "default": 80,
+          "description": "Padding in pixels around the action.",
+          "ecoscope:advanced": true,
+          "minimum": 0,
+          "title": "Fit Padding",
+          "type": "integer"
         }
       },
-      "title": "FollowCamera",
+      "title": "Follow the action",
       "type": "object"
     },
     "KeyframesCamera": {
-      "description": "Camera flies through a set of waypoints while the data animates.\n\nPick a `source`: upload a waypoint file (KeyframesFromFile) or auto-derive a\npath by following a subject (KeyframesFromSubject) -- see also the\nderive_camera_keyframes task, which does the same derivation as an explicit,\ninspectable/editable list of keyframes. Alternatively, supply your own\n``keyframes`` (a list of CameraKeyframe) programmatically -- these can be\nplaced anywhere and are not tied to any subject's track, and take priority\nover `source` when non-empty.",
+      "description": "Flies through waypoints while the data animates.\n\nPick a `source`: upload a waypoint file, or follow a subject. Waypoints supplied\ndirectly in ``keyframes`` (e.g. from derive_camera_keyframes) take priority.\nWaypoints without a zoom use the whole-scene framing (plus zoom_offset).",
       "properties": {
         "type_": {
           "const": "keyframes",
@@ -615,15 +1203,31 @@
           "enum": [
             "keyframes"
           ],
-          "title": "Type ",
+          "title": "Camera",
           "type": "string"
+        },
+        "zoom_offset": {
+          "default": 0.0,
+          "description": "Zoom levels added to the automatic framing (+1 = twice as close).",
+          "ecoscope:advanced": true,
+          "title": "Zoom Offset",
+          "type": "number"
+        },
+        "keyframes": {
+          "default": null,
+          "description": "Camera waypoints, flown through in order. Each needs lon/lat; t (0\u20131 clip position), zoom, pitch and bearing are optional. Leave empty to build the path from Source instead.",
+          "items": {
+            "$ref": "#/$defs/CameraKeyframe"
+          },
+          "title": "Keyframes",
+          "type": "array"
         },
         "source": {
           "default": {
             "type_": "subject",
             "subject": null
           },
-          "description": "How to build the camera path when `keyframes` is empty: upload a file, or auto-derive one by following a subject. Ignored when `keyframes` is provided directly.",
+          "description": "How to build the path when `keyframes` is empty: upload a file, or follow a subject.",
           "discriminator": {
             "mapping": {
               "file": "#/$defs/KeyframesFromFile",
@@ -653,30 +1257,9 @@
           ],
           "title": "Keyframe Easing",
           "type": "string"
-        },
-        "zoom": {
-          "default": 12,
-          "description": "Zoom applied to every auto-derived keyframe. None -> the scene's initial zoom. Not user-configurable; set via a workflow's spec.yaml if a non-default value is needed.",
-          "ecoscope:advanced": true,
-          "title": "Zoom",
-          "type": "number"
-        },
-        "pitch": {
-          "default": 45,
-          "description": "Pitch applied to every auto-derived keyframe. None -> the scene's initial pitch. Not user-configurable; set via a workflow's spec.yaml if a non-default value is needed.",
-          "ecoscope:advanced": true,
-          "title": "Pitch",
-          "type": "number"
-        },
-        "bearing": {
-          "default": 0,
-          "description": "Bearing applied to every auto-derived keyframe. None -> the scene's initial bearing. Not user-configurable; set via a workflow's spec.yaml if a non-default value is needed.",
-          "ecoscope:advanced": true,
-          "title": "Bearing",
-          "type": "number"
         }
       },
-      "title": "KeyframesCamera",
+      "title": "Keyframes",
       "type": "object"
     },
     "KeyframesFromFile": {
@@ -688,21 +1271,21 @@
           "enum": [
             "file"
           ],
-          "title": "Type ",
+          "title": "Source",
           "type": "string"
         },
         "keyframes_file": {
           "default": null,
-          "description": "Path to an uploaded keyframe file: a .json list of {lon, lat, t?, zoom?, pitch?, bearing?} objects, a .geojson of Point features (extras read from properties), or a .csv/.tsv with lon/lat columns.",
+          "description": "Path to an uploaded keyframe file: a .json list of {lon, lat, t?, zoom?, pitch?, bearing?} objects, a .geojson of Point features (extras read from properties), or a .csv/.tsv with lon/lat columns. Required for this source.",
           "title": "Keyframes File",
           "type": "string"
         }
       },
-      "title": "KeyframesFromFile",
+      "title": "Upload waypoint file",
       "type": "object"
     },
     "KeyframesFromSubject": {
-      "description": "Camera path auto-derived from the animated data by following one subject (or the group).",
+      "description": "Camera path auto-derived by following one subject through the animated data.\n\nThe subject is matched against every column, so it works for trips and for point or\npolygon layers that carry the subject's column.",
       "properties": {
         "type_": {
           "const": "subject",
@@ -710,21 +1293,21 @@
           "enum": [
             "subject"
           ],
-          "title": "Type ",
+          "title": "Source",
           "type": "string"
         },
         "subject": {
           "default": null,
-          "description": "Which subject to follow -- a value from the 'name' (or 'groupby_col') column, a positional index (as digits, e.g. '2'), 'all' for the group's mean position, or empty for the longest-running track.",
+          "description": "Value identifying the subject in any column (e.g. its name or group id). Leave blank to follow the longest-running track.",
           "title": "Subject",
           "type": "string"
         }
       },
-      "title": "KeyframesFromSubject",
+      "title": "Follow a subject",
       "type": "object"
     },
     "OrbitCamera": {
-      "description": "Camera circles the scene's centroid at a constant tilt.\n\nNot tied to any subject -- it orbits the mean position of every visited\npoint in the scene.",
+      "description": "Circles the center of all the animated data.",
       "properties": {
         "type_": {
           "const": "orbit",
@@ -732,11 +1315,26 @@
           "enum": [
             "orbit"
           ],
-          "title": "Type ",
+          "title": "Camera",
           "type": "string"
+        },
+        "zoom_offset": {
+          "default": 0.0,
+          "description": "Zoom levels added to the automatic framing (+1 = twice as close).",
+          "ecoscope:advanced": true,
+          "title": "Zoom Offset",
+          "type": "number"
+        },
+        "rounds": {
+          "default": 1.0,
+          "description": "Full turns over the clip.",
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.0,
+          "title": "Rounds",
+          "type": "number"
         }
       },
-      "title": "OrbitCamera",
+      "title": "Orbit",
       "type": "object"
     },
     "PresetResolution": {
@@ -758,7 +1356,7 @@
       "type": "object"
     },
     "StaticCamera": {
-      "description": "Camera holds the scene's initial view for the whole clip.\n\nNo motion, no overrides -- whatever view the map/animation was authored\nwith is what renders. Pick one of the other camera types for movement.",
+      "description": "Holds one view that fits all the animated data for the whole clip.",
       "properties": {
         "type_": {
           "const": "static",
@@ -766,11 +1364,18 @@
           "enum": [
             "static"
           ],
-          "title": "Type ",
+          "title": "Camera",
           "type": "string"
+        },
+        "zoom_offset": {
+          "default": 0.0,
+          "description": "Zoom levels added to the automatic framing (+1 = twice as close).",
+          "ecoscope:advanced": true,
+          "title": "Zoom Offset",
+          "type": "number"
         }
       },
-      "title": "StaticCamera",
+      "title": "Static",
       "type": "object"
     }
   },
@@ -789,29 +1394,59 @@
         "time_format"
       ]
     },
-    "Video Creation": {
+    "terrain_sampling": {
       "ui:order": [
-        "video_output_path",
-        "create_animation"
-      ],
-      "create_animation": {
+        "offset",
+        "ground_elevation"
+      ]
+    },
+    "Map Zoom & Extent": {
+      "trips_view_state": {
         "ui:order": [
-          "camera",
-          "duration",
-          "resolution"
+          "pitch",
+          "bearing"
         ]
       }
+    },
+    "create_controls": {
+      "ui:order": [
+        "visible",
+        "show_play",
+        "show_restart",
+        "show_scrubber",
+        "show_clock",
+        "show_time",
+        "time_format",
+        "show_speed",
+        "position"
+      ]
+    },
+    "timeline_animation": {
+      "ui:order": [
+        "duration_s",
+        "auto_rotate_speed"
+      ]
+    },
+    "create_animation": {
+      "ui:order": [
+        "camera",
+        "duration",
+        "resolution"
+      ]
     },
     "ui:order": [
       "workflow_details",
       "er_client_name",
       "time_range",
-      "Subject Group",
+      "subject_observations",
       "convert_to_trajs",
       "terrain_exaggeration",
-      "animation_settings",
-      "draw_animation",
-      "Video Creation"
+      "terrain_sampling",
+      "Map Zoom & Extent",
+      "trips_animation",
+      "create_controls",
+      "timeline_animation",
+      "create_animation"
     ]
   },
   "additionalProperties": false

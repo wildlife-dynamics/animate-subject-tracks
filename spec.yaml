@@ -13,9 +13,9 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-mep
-    version: "1.0.2.*"
+    version: "1.0.4.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-    
+
   - name: pydeck
     version: 0.9.2
     channel: conda-forge
@@ -26,8 +26,20 @@ requirements:
 
 rjsf-overrides:
   properties:
-    Subject Group.properties.subject_group_var.properties.var.title: Subject Group Name
-    Subject Group.properties.subject_group_var.properties.var.default: Elephants
+    # Section descriptions for task blocks exposed on the config form
+    #er_client_name.description: Choose the EarthRanger site to pull subject tracking data from.
+    subject_observations.description: Choose the subject group whose movements will be animated. Each subject in the group is drawn as its own track.
+    convert_to_trajs.description: Clean the tracks before animating by removing segments that are too long, too short, too slow or too fast to be real movement, such as GPS jumps.
+    terrain_exaggeration.description: Control how strongly hills and valleys are raised on the 3D terrain. Increase it to make relief easier to see in flat landscapes.
+    terrain_sampling.description: Control how tracks are draped onto the 3D terrain so they sit on the ground surface rather than floating above it or disappearing below it.
+    trips_animation.description: Choose the marker shown at each subject's current position as its track plays.
+    create_controls.description: Choose which playback controls appear on the interactive map, such as play/pause, the time slider and speed buttons, and where they sit.
+    timeline_animation.description: Set how long the animation takes to play from the first location to the last, and whether the map slowly rotates while it plays.
+    create_animation.description: Export the animation as an MP4 video. Choose how the camera moves, how long the video runs and its resolution.
+    # Viewing angle of the map (ext_ste ships these with placeholder descriptions)
+    Map Zoom & Extent.properties.trips_view_state.properties.pitch.description: Tilt of the map in degrees. 0 looks straight down; higher values tilt the view towards the horizon for a 3D look at the terrain. The video cameras use this tilt too.
+    Map Zoom & Extent.properties.trips_view_state.properties.bearing.description: Rotation of the map in degrees clockwise from north. 0 keeps north at the top, 90 puts east at the top, and negative values rotate counter-clockwise. The video cameras use this rotation too.
+
 task-instance-defaults:
   skipif:
     conditions:
@@ -56,25 +68,17 @@ workflow:
     partial:
       groupers: []
 
-  - title: Subject Group
-    type: task-group
-    description: Choose subject group to generate collar voltage charts and overall speedmap
-    tasks:
-      - name: Set subject group name
-        id: subject_group_var
-        task: set_string_var
-
-  - name: Get subject group observations
+  - name: Subject Group
     id: subject_observations
     task: get_subjectgroup_observations
     partial:
       filter: clean
       client: ${{ workflow.er_client_name.return }}
       time_range: ${{ workflow.time_range.return }}
-      subject_group_name: ${{ workflow.subject_group_var.return }} 
+      # subject_group_name: ${{ workflow.subject_group_var.return }} 
       raise_on_empty: false
       include_details: true
-      include_subjectsource_details: false
+      include_subjectsource_details: true
 
   - name: Transform observations to relocations
     id: subject_reloc
@@ -89,6 +93,12 @@ workflow:
         - extra__subject__name
         - extra__subject__hex
         - extra__subject__sex
+        - extra__created_at
+        - extra__subject__subject_subtype
+        - extra__subjectsource__id
+        - extra__subjectsource__assigned_range
+        - extra__observation_details
+
       filter_point_coords:
         - x: 180.000000
           y: 90.000000
@@ -120,21 +130,23 @@ workflow:
 
   - name: Save relocations to GeoParquet
     id: persist_relocs_geoparquet
-    task: persist_df 
+    task: persist_df_wrapper
     partial: 
       df: ${{ workflow.subject_reloc.return }}
-      filetype: geoparquet 
+      filetypes: [geoparquet]
+      filename_prefix: relocations 
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename: relocations
+      sanitize: true
 
   - name: Save trajectories to GeoParquet
     id: persist_trajs_geoparquet
-    task: persist_df 
+    task: persist_df_wrapper
     partial: 
       df: ${{ workflow.rename_traj_cols.return }}
-      filetype: geoparquet 
+      filetypes: [geoparquet]
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename: trajectories
+      filename_prefix: trajectories
+      sanitize: true
 
   - name: Terrain Exaggeration
     id: terrain_exaggeration
@@ -152,6 +164,7 @@ workflow:
       elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
       texture: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
 
+  # this can also be optional to allow user to decide which basemap option they would be comfortable with
   - name: Configure basemap
     id: basemap_option
     task: set_basemap_option
@@ -161,20 +174,37 @@ workflow:
         elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
         tile_urls: ${{ workflow.custom_basemap_urls.return }}
 
+  - name: Ensure trajs are epsg 4326 
+    id: ensure_wgs 
+    task: convert_crs
+    partial: 
+      df: ${{ workflow.rename_traj_cols.return }}
+      crs: "EPSG:4326"
+
   - name: Prepare trajectory animation data
     id: trajs_trips
     task: trajectory_to_trips
     partial:
-      trajectory_gdf: ${{ workflow.rename_traj_cols.return }}
-      subject_name_col: subject_name
-      subject_hex_col: hex_color
-      terrain:
-        zoom: 15
-        offset: 30
-        cache_dir: null
-        ground_elevation: 1500
-        elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
-        elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
+      trajectory_gdf: ${{ workflow.ensure_wgs.return }}
+      groupby_col: groupby_col
+      keep_cols: [
+        "subject_name",
+        "hex_color",
+      ]
+
+  - name: Terrain Sampling
+    id: terrain_sampling 
+    task: create_terrain_sampling 
+    partial: 
+      elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+      elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
+    
+  - name: Drape trips on terrain 
+    id: drape_terrain 
+    task: drape_trips_on_terrain 
+    partial: 
+      trips_gdf: ${{ workflow.trajs_trips.return }}
+      terrain: ${{ workflow.terrain_sampling.return }}
 
   - name: Create terrain layer
     id: terrain_layer
@@ -195,39 +225,48 @@ workflow:
         id: zoom_to_envelope 
         task: ecoscope_workflows_ext_ste.tasks.spatial_operations.envelope_gdf
         partial:
-          expansion_factor: 1.05
+          expansion_factor: 1.00
           gdf: ${{ workflow.trajs_trips.return }}
   
-      - name: Zoom view to gdf extent
+      - name: null
         id: trips_view_state
         task: ecoscope_workflows_ext_ste.tasks.spatial_operations.compute_view_state_from_gdf
         partial:
-          pitch: 0
-          bearing: 0
           max_zoom: 15
           gdf: ${{ workflow.zoom_to_envelope.return }}
   
-  - name: Normalize animation timestamps
-    id: normalize_trips 
-    task: normalize_timestamps 
-    partial: 
-      target_span: null 
-      df: ${{ workflow.trajs_trips.return }}
+  - name: Add rgba from hex 
+    id: rgba_hex 
+    task: add_rgba_from_hex
+    partial:
+      column: hex_color
+      new_column: rgba_color
+      df: ${{ workflow.drape_terrain.return }}
 
+  - name: Create Animation
+    id: trips_animation 
+    task: create_trips_animation 
+    partial: 
+      comet_ratio: 0.95 
+      show_history: true 
+      history_color: [255,255,255]
+      fade_history: true 
+      history_opacity: 0.85
+    
   - name: Create trips layer 
     id: trips_layer 
     task: create_trips_layer 
     partial: 
-      geodataframe: ${{ workflow.normalize_trips.return }}
+      geodataframe: ${{ workflow.rgba_hex.return }}
       data_url: null 
       layer_style: 
         get_timestamps: timestamps 
-        get_color: color 
+        get_color: rgba_color 
         get_width: 2.15
         width_units: pixels 
         width_scale: 1
         width_min_pixels: 1
-        width_max_pixels : 5
+        width_max_pixels : 4
         cap_rounded: true
         joint_rounded: true 
         billboard: false 
@@ -236,33 +275,36 @@ workflow:
         trail_length: 120
       legend: 
         title: Subjects 
-        label_column: name 
-        color_column: color
+        label_column: subject_name 
+        color_column: rgba_color
         sort: ascending 
         label_suffix: null 
   
-  - name: Animation Settings
-    id: animation_settings
-    task: create_timeline_animation
-    partial:
-      fade_ratio: 1.00
-      fps_limit: 30
-      show_history: true
-      history_color: [255, 255, 255]
-      head_outline_color:  [255, 255, 255]
-      history_opacity: 1.00
-      fade_history: true
-      show_head: true
-      head_radius: 1.75
-      head_color: null
-      head_outline_width: 1.00
-      auto_rotate_speed: 0.0
+  - name: Animate trips layer 
+    id: animate_trips
+    task: animate_layer 
+    partial: 
+      layer:  ${{ workflow.trips_layer.return }}
+      animation: ${{ workflow.trips_animation.return }}
+  
+  - name: Create Controls 
+    id: create_controls 
+    task: create_playback_controls 
+    partial: 
+      speeds: [0.5,1,2,4]
+
+  - name: Create Timeline Animation 
+    id: timeline_animation 
+    task: create_timeline_animation 
+    partial: 
+      fps_limit: 30 
+      controls: ${{ workflow.create_controls.return }}
 
   - name: Draw Animation
     id: draw_animation
     task: draw_animated_map
     partial:
-      geo_layers: ${{ workflow.trips_layer.return }}
+      geo_layers: ${{ workflow.animate_trips.return }}
       tile_layers:
         - ${{ workflow.terrain_layer.return }}
       static: false
@@ -271,7 +313,8 @@ workflow:
       legend_style:
         placement: "bottom-right"
       view_state: ${{ workflow.trips_view_state.return }}
-      animation: ${{ workflow.animation_settings.return }}
+      widget_id: null 
+      timeline: ${{ workflow.timeline_animation.return }}
 
   - name: Save animated map as HTML
     id: map_urls
@@ -281,45 +324,32 @@ workflow:
       text: ${{ workflow.draw_animation.return }}
       filename: animated_map.html
 
-  - title: Video Creation
-    type: task-group
-    description: >-
-      Optionally render the animated map as a video file.
-      Enable the toggle to turn on video creation.
-    tasks:
-      - name: Configure video export
-        id: video_output_path
-        task: configure_video_export
-        partial: 
-          filename: ${{ workflow.map_urls.return }}
-
-      - name: Render animation video
-        id: create_animation
-        task: render_animation
-        skipif:
-          conditions:
-            - any_dependency_skipped
-        partial:
-          html_path: ${{ workflow.video_output_path.return }}
-          output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-          out_path: "animation.mp4"
-          fps: 30
-          # duration:
-          #   auto: false
-          #   seconds: 60.0
-          device_scale_factor: 1
-          gl: auto
-          workers: 1
-          capture_format: jpeg
-          jpeg_quality: 92
-          settle_ms: 30
-          settle_timeout_ms: 8000
-          head_ready_timeout_ms: 30000
-          crf: 18
-          x264_preset: veryfast
-          start_frac: 0.0
-          end_frac: 1.0
-          verbose: true
+  - name: Animation Video
+    id: create_animation
+    task: render_animation
+    skipif:
+      conditions:
+        - any_dependency_skipped
+    partial:
+      html_path: ${{ workflow.map_urls.return }}
+      output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      out_path: "animation.mp4"
+      fps: 30
+      start_frac: 0
+      end_frac: 1 
+      verbose: true
+      quality:
+        capture_format: "jpeg"
+        jpeg_quality: 92
+        crf: 18 
+        x264_preset: veryfast 
+        device_scale_factor: 1 
+      capture: 
+        gl: "auto"
+        workers: "auto"
+        settle_ms: 30 
+        settle_timeout_ms: 8000
+        head_ready_timeout_ms: 30000
       
     # Map widgets
   - name: Create animated map widget

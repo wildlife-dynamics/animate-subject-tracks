@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Troubleshooting — Animate Subject Tracks Workflow</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="index.html">Animate Subject Tracks</a>
+      <nav>
+        <a href="index.html">Overview</a>
+        <a href="user-guide.html">User Guide</a>
+        <a href="technical-guide.html">Technical Guide</a>
+        <a href="troubleshooting.html" class="active">Troubleshooting</a>
+        <a href="https://github.com/wildlife-dynamics/animate-subject-tracks">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <h1>Troubleshooting</h1>
+    <p class="lede">Common issues encountered while configuring, running, or contributing to the Animate Subject Tracks Workflow, and how to resolve them. If your issue isn't listed here, open an issue on <a href="https://github.com/wildlife-dynamics/animate-subject-tracks/issues">GitHub</a>.</p>
+
+    <h2>Data &amp; Configuration</h2>
+
+    <div class="error-block">
+      <p class="symptom">The run finishes but the map is empty, or no files are written</p>
+      <p>The <a href="user-guide.html#subject-group">Subject Group Name</a> must match the group name in EarthRanger exactly, and the group must have location fixes inside the <a href="user-guide.html#time-range">Time Range</a>. The workflow doesn't raise an error when EarthRanger returns nothing: the empty result causes every later step to be skipped instead, so you get an empty run rather than a failure.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom">Some fixes are missing from a track</p>
+      <p>Only fixes that are <strong>not</strong> marked as excluded in EarthRanger are fetched. Fixes at the known junk coordinates (0, 0), (1, 1) and (180, 90) are also dropped.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom">A track is broken into disconnected pieces, or a subject is missing entirely</p>
+      <p>The <a href="user-guide.html#segment-filter">Trajectory Segment Filter</a> drops segments longer than 100 km, longer than 2 days, or faster than 500 km/h (among other limits). Data with long gaps between fixes, or GPS glitches, can lose segments. If every segment of a subject is dropped, that subject disappears. Loosen the limits to match your data's fix interval and speeds.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom">Unexpected results with a mixed group</p>
+      <p>Groups that mix subject subtypes (e.g. collared animals and vehicles) can give unexpected results: a single segment filter has to suit all of them, and the automatic framing covers every subject. Animate one subtype per run where possible.</p>
+    </div>
+
+    <h2>Map &amp; Terrain</h2>
+
+    <div class="error-block">
+      <p class="symptom">The terrain or satellite imagery is blank</p>
+      <p>Terrain elevation (AWS Terrarium) and imagery (Esri World Imagery) tiles are fetched live, by the workflow while it runs and by the browser when you open the map. Check that the machine, and anyone viewing <code>animated_map.html</code>, has internet access and can reach <code>s3.amazonaws.com</code> and <code>server.arcgisonline.com</code>.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom">Trails float above the terrain or disappear into it</p>
+      <p>Adjust <a href="user-guide.html#terrain-sampling">Terrain Sampling &rarr; Offset</a> (default 30 m above the ground). If elevation tiles couldn't be read during the run, every track point is placed at the constant <strong>Ground Elevation</strong> (default 1000 m), which won't match the real terrain; re-run once the tiles are reachable. Changing <strong>Terrain Exaggeration</strong> re-drapes the trails to match automatically.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom">The map is framed badly, or looks flat</p>
+      <p>The view is fitted to all tracks automatically. To see the terrain in 3D, raise <a href="user-guide.html#map-zoom">Pitch</a> (e.g. 45&ndash;60) and optionally rotate with <strong>Bearing</strong>. One subject far from the rest will make the automatic framing zoom out to include it.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom">The 3D model marker doesn't appear, or faces the wrong way</p>
+      <p>Check the <a href="user-guide.html#marker">Marker icon</a> setting. For a custom model, the GLB URL or file must be reachable from the machine running the workflow. If the model faces sideways, adjust <strong>Yaw Offset</strong>; if it is nose-up or nose-down, adjust <strong>Model Pitch</strong>. If it spins or tips while the subject is stationary, raise <strong>Min Move M</strong> or leave <strong>Terrain Pitch</strong> off.</p>
+    </div>
+
+    <h2>Video</h2>
+
+    <div class="error-block">
+      <p class="symptom">The run is slow, mostly at the video step</p>
+      <p>The video is recorded frame by frame: frames = 30 fps &times; duration. The default is 900 frames at 720p. 1080p, 4K and longer <a href="user-guide.html#video">durations</a> take proportionally longer. Try the defaults first. Machines without a GPU fall back to software rendering, which is much slower.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom">The first video render fails with a browser or Playwright error</p>
+      <p>On its first run in a new environment, the video step downloads Playwright's Chromium browser. The machine needs internet access and permission to write to its Playwright cache. Run the workflow again once that's resolved.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom"><code>camera='keyframes' needs at least 2 keyframes</code></p>
+      <p>A <a href="user-guide.html#cameras">Keyframes</a> camera path needs at least two waypoints. Add more rows to your waypoint file, or leave the keyframes empty and choose <strong>Follow a subject</strong> as the source to derive a path from the data.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom">Keyframes waypoint file is rejected</p>
+      <p>Supported formats are <code>.json</code> (a list of objects with <code>lon</code>/<code>lat</code>), <code>.geojson</code> (Point features), <code>.csv</code> and <code>.tsv</code> (<code>lon</code>/<code>lat</code> columns; <code>longitude</code>/<code>latitude</code>, <code>lng</code> or <code>x</code>/<code>y</code> also work). Optional columns: <code>t</code>, <code>zoom</code>, <code>pitch</code>, <code>bearing</code> (or <code>heading</code>).</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom">No outputs written / can't find results</p>
+      <p>All outputs are written to the directory specified by the <code>ECOSCOPE_WORKFLOWS_RESULTS</code> environment variable. Confirm it's set and points to a directory the workflow process can write to. The video is saved there as <code>animation.mp4</code>; it isn't shown on the dashboard.</p>
+    </div>
+
+    <h2>Contributing &amp; CI</h2>
+    <p>These apply if you're modifying the workflow itself (<code>spec.yaml</code> or the generated <code>ecoscope-workflows-animate-tracks-workflow/</code> directory) and opening a pull request.</p>
+
+    <div class="error-block">
+      <p class="symptom"><code>Generated files differ from committed files in ecoscope-workflows-animate-tracks-workflow</code></p>
+      <p>The generated workflow directory is out of sync with <code>spec.yaml</code>. Run the recompile script locally and commit the result:</p>
+      <pre><code>pixi run --manifest-path pixi.toml --locked bash -c "./dev/recompile.sh --update"</code></pre>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom"><code>Found wildcard version (*) in requirements</code> or <code>Found local file channel (file://) in requirements</code></p>
+      <p>In <code>spec.yaml</code>, every dependency under <code>requirements</code> must pin a version and use a remote conda channel. Wildcard versions and local <code>file://</code> channels (e.g. a local build of <code>ecoscope-workflows-ext-mep</code>) are only for local development.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom"><code>VERSION.yaml (...) must be greater than main branch (...)</code></p>
+      <p>Bump <code>MAJ</code>/<code>MIN</code>/<code>PATCH</code> in <code>ecoscope-workflows-animate-tracks-workflow/VERSION.yaml</code> so it's strictly greater than the version on <code>main</code> before opening or updating a PR.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom"><code>test-cases.yaml not found</code> or <code>test-cases.yaml must contain at least one test case</code></p>
+      <p>Every workflow needs a <code>test-cases.yaml</code> at the repository root with at least one top-level entry containing a <code>params</code> block.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom">Documentation changes don't appear on the site</p>
+      <p>The site is deployed from the <code>docs/</code> folder by the <strong>Deploy Pages</strong> workflow on every push to <code>main</code> that touches <code>docs/</code>. After changing <code>spec.yaml</code>, regenerate the technical guide and copy it into the site:</p>
+      <pre><code>cd technical_guide && python3 generate_technical_guide.py
+cp animate_subject_tracks_technical_guide.pdf ../docs/assets/</code></pre>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>Animate Subject Tracks Workflow &middot; <a href="https://github.com/wildlife-dynamics/animate-subject-tracks">wildlife-dynamics/animate-subject-tracks</a> on GitHub</p>
+  </footer>
+</body>
+</html>

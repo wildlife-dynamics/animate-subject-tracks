@@ -4,8 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - README.md
-      - USER_GUIDE.pdf
+      - docs/**
       - .github/workflows/pages.yml
   workflow_dispatch:
 
@@ -24,19 +23,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install markdown renderer
-        run: pip install markdown
-
-      - name: Build site
-        run: python .github/scripts/build_pages.py
+      - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          path: docs
 
   deploy:
     needs: build
