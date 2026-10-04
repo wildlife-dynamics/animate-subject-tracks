@@ -1,21 +1,10 @@
-name:  # Title Case, e.g. "My Ecoscope Workflow Template"
-
-# at least one author is required
+name: Animate Subject Tracks
 author:
-  - name: ""
-    organization: ""
-    email: ""
+  - name: Tevin Temu
+    organization: Wildlife Dynamics
+    email: tevin@wildlifedynamics.com
 
-description: # A short description
-
-# todo: add example
-theory: "" # optional
-
-# todo: add example
-output_comment: "" # optional
-
-# optional
-# example
-# citation: 
-#   - Wu, Y. et al. (2025). "Monitoring elephant spatial patterns with Ecoscope workflows."
-citation: [] 
+description: Turns an EarthRanger subject group's GPS history into an animated 3D map, with each subject's track sweeping across satellite imagery draped on real terrain over time, and exports the same animation as an MP4 video.
+theory: "GPS relocations are converted to trajectory segments and cleaned by dropping segments whose length, duration, or speed fall outside realistic limits (such as GPS jumps). The cleaned trajectories are converted into time-stamped trips that animate from the first location to the last over a set playback duration. Each track point is draped onto 3D terrain built from AWS Terrarium elevation tiles, with an adjustable height offset and vertical exaggeration."
+output_comment: "Outputs an interactive animated 3D map (animated_map.html) with playback controls and a legend of subject names, an MP4 video of the animation (animation.mp4), GeoParquet files of the cleaned relocations and trajectories, and a dashboard showing the animated map."
+citation: []
