@@ -1,13 +1,13 @@
 # Animate Subject Tracks Workflow
 
-Turns an EarthRanger subject group's GPS history into an animated 3D map: each subject's track sweeps across real terrain as time passes, and the same animation is exported as an MP4 video.
+Turns an EarthRanger subject group's GPS history into an animated 3D map: each subject's track sweeps across real terrain as time passes. The same animation can optionally be exported as an MP4 video.
 
 Full documentation: **[wildlife-dynamics.github.io/animate-subject-tracks](https://wildlife-dynamics.github.io/animate-subject-tracks/)** (User Guide, Technical Guide and Troubleshooting).
 
 ## What it produces
 
-- An **interactive animated 3D map** (`animated_map.html`). Each subject is drawn as a trail in its EarthRanger colour, with a marker at its current position, over satellite imagery draped on 3D terrain. It has a playback bar (play/pause, restart, time slider, speed) and a legend of subject names.
-- An **MP4 video** (`animation.mp4`) of the same animation, recorded with the camera movement you choose.
+- An **interactive animated 3D map** (`animated_map.html`). Each subject is drawn as a trail in its EarthRanger colour, with a marker at its current position, over a basemap of your choice (satellite imagery by default) draped on 3D terrain. It has a playback bar (play/pause, restart, time slider, speed) and a legend of subject names.
+- An optional **MP4 video** (`animation.mp4`) of the same animation, recorded with the camera movement you choose. Video export is off by default.
 - **GeoParquet files** of the cleaned relocations and trajectories, for further analysis.
 - A **dashboard** showing the animated map, with the workflow details and time range.
 
@@ -15,9 +15,9 @@ Full documentation: **[wildlife-dynamics.github.io/animate-subject-tracks](https
 
 - An **EarthRanger connection** configured in the workflow runner.
 - The name of a **subject group** in EarthRanger, e.g. `Elephants`. Every subject in the group gets its own track.
-- Internet access while the workflow runs. Terrain elevation tiles (AWS Terrarium) and satellite imagery (Esri World Imagery) are fetched live.
+- Internet access while the workflow runs. Terrain elevation tiles (AWS Terrarium) and basemap imagery (Esri ArcGIS Online) are fetched live.
 
-> Longer time ranges and larger subject groups take longer to fetch and to record as video. For a first run, a range of a few days to a few weeks works well.
+> Longer time ranges and larger subject groups take longer to fetch and, if video export is on, to record as video. For a first run, a range of a few days to a few weeks works well.
 
 ---
 
@@ -77,18 +77,35 @@ Removes GPS noise by dropping track segments whose length, duration or speed fal
 | Min / Max time | `1` s / `172 800` s (2 days) |
 | Min / Max speed | `0.01` km/h / `500` km/h |
 
-### Terrain Exaggeration *(advanced)*
+### Terrain
+
+Controls how the 3D terrain looks and how the tracks sit on it.
+
+#### Terrain Exaggeration *(advanced)*
 
 | Field | Default | Description |
 |-------|---------|-------------|
 | Exaggeration | `1.0` | Vertical scale of the 3D terrain. `1.0` is true scale; `2.0` doubles apparent heights, which helps on flat landscapes. |
 
-### Terrain Sampling *(advanced)*
+#### Terrain Sampling *(advanced)*
 
 | Field | Default | Description |
 |-------|---------|-------------|
 | Offset | `30` m | Height added above the ground at every track point, so trails sit on top of the terrain rather than inside it |
 | Ground Elevation | `1000` m | Constant ground height used only if elevation tiles can't be read |
+
+#### Basemap
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| Basemap | Satellite | Map imagery draped over the 3D terrain, in both the interactive map and the video |
+
+| Option | Description |
+|--------|-------------|
+| Satellite *(default)* | Esri World Imagery aerial and satellite photos |
+| Terrain | Esri World Topographic Map, with contours, roads and place names |
+| Roadmap | Esri World Street Map |
+| USGS Hillshade | Esri World Hillshade, a grey shaded-relief map that emphasises landforms |
 
 ### Map Zoom & Extent *(advanced)*
 
@@ -96,10 +113,14 @@ The map is automatically centred and zoomed to fit every track. These two fields
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| Pitch | `0` | Tilt in degrees (0–90). `0` looks straight down; higher values tilt towards the horizon for a 3D view. |
+| Pitch | `45` | Tilt in degrees (0–90). `0` looks straight down; higher values tilt towards the horizon for a 3D view. |
 | Bearing | `0` | Rotation in degrees clockwise from north (−180 to 180). `90` puts east at the top. |
 
-### Create Animation *(advanced)*
+### Animation
+
+Controls how the tracks animate on the map.
+
+#### Create Animation *(advanced)*
 
 **Marker icon** sets what is drawn at each subject's current position:
 
@@ -110,18 +131,30 @@ The map is automatically centred and zoomed to fit every track. These two fields
 | 3D model (custom) | Your own glTF/GLB model (URL or file path), with controls for size, heading and tilt |
 | None | No marker; only the trails are drawn |
 
-### Create Controls *(advanced)*
+#### Playback Control *(advanced)*
 
 Sets which parts of the playback bar appear on the interactive map: play/pause, restart, time slider, playback clock, data time, speed button (0.5×, 1×, 2×, 4×), and whether the bar sits at the **bottom** or **top**. All are shown by default. **Time Format** shows the data time as a full date-time, a date (default), or time elapsed since the start.
 
-### Create Timeline Animation *(advanced)*
+#### Playback Length & Smoothness *(advanced)*
 
 | Field | Default | Description |
 |-------|---------|-------------|
 | Duration S | `30` s | How long playback takes from the first location to the last. The video uses the same length by default. |
-| Auto Rotate Speed | `0` | Slowly rotates the map while it plays, in degrees per second. `0` is off; negative values rotate counter-clockwise. |
+| Fps Limit | `30` | Maximum number of times per second the interactive map redraws while playing. Higher values look smoother but need a faster computer; lower values reduce load on slower machines. |
 
-### Animation Video *(advanced)*
+### Video Export *(advanced)*
+
+Exports the animation as an MP4 video. **Video export is off by default**, so only the interactive map is produced.
+
+#### Include video?
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| Export video | Off | Turn on to also render the animation as an MP4 video. Recording a video makes the workflow take longer to run. |
+
+#### Video Settings
+
+These settings only apply when **Export video** is on.
 
 | Field | Default | Description |
 |-------|---------|-------------|
@@ -145,9 +178,9 @@ Every camera frames whatever is animating at the video's size, using the map's p
 
 ## 3. Run the Workflow
 
-Click **Submit**. The workflow fetches the observations, cleans them into trajectories, drapes them on the terrain, builds the animated map, then records the video frame by frame in a headless browser.
+Click **Submit**. The workflow fetches the observations, cleans them into trajectories, drapes them on the terrain and builds the animated map. If **Export video** is on, it then records the video frame by frame in a headless browser; otherwise that step is skipped.
 
-Recording the video is usually the slowest step. The default settings give 900 frames (30 seconds at 30 fps). Higher resolutions and longer durations take proportionally longer.
+When it's on, recording the video is usually the slowest step. The default settings give 900 frames (30 seconds at 30 fps). Higher resolutions and longer durations take proportionally longer.
 
 ---
 
@@ -158,7 +191,7 @@ All files are written to the workflow's results folder (`ECOSCOPE_WORKFLOWS_RESU
 | File | Description |
 |------|-------------|
 | `animated_map.html` | The interactive animated 3D map, also shown on the dashboard as **Subject movements** |
-| `animation.mp4` | H.264 video of the animation |
+| `animation.mp4` | H.264 video of the animation. Only written when **Export video** is on. |
 | `relocations_<hash>.geoparquet` | Cleaned GPS fixes |
 | `trajectories_<hash>.geoparquet` | Trajectory segments after the segment filter |
 
@@ -172,8 +205,9 @@ The dashboard shows the **Subject movements** map along with the workflow name, 
 |---------|--------------|
 | No tracks appear | The subject group name doesn't match EarthRanger exactly, or the group has no fixes in the time range |
 | A track is broken into disconnected pieces | The Trajectory Segment Filter is dropping segments as noise; loosen its limits if your data has long gaps or unusual speeds |
-| Trails float above or sink into the terrain | Adjust **Terrain Sampling → Offset**. If you changed **Terrain Exaggeration**, the trails are re-draped to match automatically. |
-| The run takes a long time | A wide time range, a large group, or a long/high-resolution video. Try 720p and a shorter duration first. |
+| No `animation.mp4` in the results | Video export is off by default. Turn on **Video Export → Export video** (under the advanced settings) and run again. |
+| Trails float above or sink into the terrain | Adjust **Terrain → Terrain Sampling → Offset**. If you changed **Terrain Exaggeration**, the trails are re-draped to match automatically. |
+| The run takes a long time | A wide time range, a large group, or a long/high-resolution video. Turn video export off, or try 720p and a shorter duration first. |
 | The 3D model doesn't appear | Check the **Marker icon** setting. For a custom model, the GLB URL or file must be reachable from the machine running the workflow. |
 
 More in the [Troubleshooting guide](https://wildlife-dynamics.github.io/animate-subject-tracks/troubleshooting.html).

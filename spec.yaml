@@ -30,14 +30,32 @@ rjsf-overrides:
     #er_client_name.description: Choose the EarthRanger site to pull subject tracking data from.
     subject_observations.description: Choose the subject group whose movements will be animated. Each subject in the group is drawn as its own track.
     convert_to_trajs.description: Clean the tracks before animating by removing segments that are too long, too short, too slow or too fast to be real movement, such as GPS jumps.
-    terrain_exaggeration.description: Control how strongly hills and valleys are raised on the 3D terrain. Increase it to make relief easier to see in flat landscapes.
-    terrain_sampling.description: Control how tracks are draped onto the 3D terrain so they sit on the ground surface rather than floating above it or disappearing below it.
-    trips_animation.description: Choose the marker shown at each subject's current position as its track plays.
-    create_controls.description: Choose which playback controls appear on the interactive map, such as play/pause, the time slider and speed buttons, and where they sit.
-    timeline_animation.description: Set how long the animation takes to play from the first location to the last, and whether the map slowly rotates while it plays.
-    create_animation.description: Export the animation as an MP4 video. Choose how the camera moves, how long the video runs and its resolution.
+    Terrain.properties.terrain_exaggeration.description: Control how strongly hills and valleys are raised on the 3D terrain. Increase it to make relief easier to see in flat landscapes.
+    Terrain.properties.terrain_sampling.description: Control how tracks are draped onto the 3D terrain so they sit on the ground surface rather than floating above it or disappearing below it.
+    Animation.properties.trips_animation.description: Choose the marker shown at each subject's current position as its track plays.
+    Animation.properties.create_controls.description: Choose which playback controls appear on the interactive map, such as play/pause, the time slider and speed buttons, and where they sit.
+    Animation.properties.timeline_animation.description: Set how long the animation takes to play from the first location to the last.
+    Animation.properties.timeline_animation.properties.fps_limit.description: Maximum number of times per second the interactive map redraws while playing. Higher values look smoother but need a faster computer; lower values reduce load on slower machines.
+    Terrain.properties.terrain_layer.description: Choose the basemap imagery draped over the 3D terrain.
+    Terrain.properties.terrain_layer.properties.texture.title: Basemap
+    Terrain.properties.terrain_layer.properties.texture.description: Map imagery draped over the terrain in the interactive map and the video.
+    Terrain.properties.terrain_layer.properties.texture.default: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+    Terrain.properties.terrain_layer.properties.texture.oneOf:
+      - const: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+        title: Satellite
+      - const: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
+        title: Terrain
+      - const: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+        title: Roadmap
+      - const: "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}"
+        title: USGS Hillshade
+    Video Export.properties.create_animation.description: Choose how the camera moves, how long the video runs and its resolution.
+    Video Export.properties.export_video_toggle.properties.enabled.title: Export video
+    Video Export.properties.export_video_toggle.properties.enabled.description: Off by default. Turn on to also render the animation as an MP4 video. Exporting a video makes the workflow take longer to run.
+    Video Export.properties.export_video_toggle.properties.enabled.default: false
     # Viewing angle of the map (ext_ste ships these with placeholder descriptions)
     Map Zoom & Extent.properties.trips_view_state.properties.pitch.description: Tilt of the map in degrees. 0 looks straight down; higher values tilt the view towards the horizon for a 3D look at the terrain. The video cameras use this tilt too.
+    Map Zoom & Extent.properties.trips_view_state.properties.pitch.default: 45
     Map Zoom & Extent.properties.trips_view_state.properties.bearing.description: Rotation of the map in degrees clockwise from north. 0 keeps north at the top, 90 puts east at the top, and negative values rotate counter-clockwise. The video cameras use this rotation too.
 
 task-instance-defaults:
@@ -148,14 +166,36 @@ workflow:
       filename_prefix: trajectories
       sanitize: true
 
-  - name: Terrain Exaggeration
-    id: terrain_exaggeration
-    task: create_elevation_decoder
-    partial:
-      r_scaler: 256
-      g_scaler: 1.0
-      b_scaler: 0.00390625 #1/256
-      offset: -32768.0
+  - title: Terrain
+    type: task-group
+    description: Control how the 3D terrain looks and how tracks sit on it.
+    tasks:
+      - name: Terrain Exaggeration
+        id: terrain_exaggeration
+        task: create_elevation_decoder
+        partial:
+          r_scaler: 256
+          g_scaler: 1.0
+          b_scaler: 0.00390625 #1/256
+          offset: -32768.0
+
+      - name: Terrain Sampling
+        id: terrain_sampling
+        task: create_terrain_sampling
+        partial:
+          elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+          elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
+
+      - name: Basemap
+        id: terrain_layer
+        task: create_terrain_layer
+        partial:
+          min_zoom: 0
+          max_zoom: 15
+          wireframe: false
+          elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+          # texture (the basemap draped over the terrain) is user-selectable; options are set in rjsf-overrides
+          elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
 
   - name: Configure Basemap URLs
     id: custom_basemap_urls
@@ -192,30 +232,12 @@ workflow:
         "hex_color",
       ]
 
-  - name: Terrain Sampling
-    id: terrain_sampling 
-    task: create_terrain_sampling 
-    partial: 
-      elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
-      elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
-    
   - name: Drape trips on terrain 
     id: drape_terrain 
     task: drape_trips_on_terrain 
     partial: 
       trips_gdf: ${{ workflow.trajs_trips.return }}
       terrain: ${{ workflow.terrain_sampling.return }}
-
-  - name: Create terrain layer
-    id: terrain_layer
-    task: create_terrain_layer
-    partial:
-      min_zoom: 0
-      max_zoom: 15
-      wireframe: false
-      elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
-      texture: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-      elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
 
   - title: Map Zoom & Extent
     type: task-group
@@ -243,17 +265,34 @@ workflow:
       new_column: rgba_color
       df: ${{ workflow.drape_terrain.return }}
 
-  - name: Create Animation
-    id: trips_animation 
-    task: create_trips_animation 
-    partial: 
-      comet_ratio: 0.95 
-      show_history: true 
-      history_color: [255,255,255]
-      fade_history: true 
-      history_opacity: 0.85
-    
-  - name: Create trips layer 
+  - title: Animation
+    type: task-group
+    description: Control how the tracks animate on the map.
+    tasks:
+      - name: Create Animation
+        id: trips_animation
+        task: create_trips_animation
+        partial:
+          comet_ratio: 0.95
+          show_history: true
+          history_color: [255,255,255]
+          fade_history: true
+          history_opacity: 0.85
+
+      - name: Playback Control
+        id: create_controls
+        task: create_playback_controls
+        partial:
+          speeds: [0.5,1,2,4]
+
+      - name: Playback Length & Smoothness
+        id: timeline_animation
+        task: create_timeline_animation
+        partial:
+          auto_rotate_speed: 0
+          controls: ${{ workflow.create_controls.return }}
+
+  - name: Create trips layer
     id: trips_layer 
     task: create_trips_layer 
     partial: 
@@ -286,19 +325,6 @@ workflow:
     partial: 
       layer:  ${{ workflow.trips_layer.return }}
       animation: ${{ workflow.trips_animation.return }}
-  
-  - name: Create Controls 
-    id: create_controls 
-    task: create_playback_controls 
-    partial: 
-      speeds: [0.5,1,2,4]
-
-  - name: Create Timeline Animation 
-    id: timeline_animation 
-    task: create_timeline_animation 
-    partial: 
-      fps_limit: 30 
-      controls: ${{ workflow.create_controls.return }}
 
   - name: Draw Animation
     id: draw_animation
@@ -324,33 +350,44 @@ workflow:
       text: ${{ workflow.draw_animation.return }}
       filename: animated_map.html
 
-  - name: Animation Video
-    id: create_animation
-    task: render_animation
-    skipif:
-      conditions:
-        - any_dependency_skipped
-    partial:
-      html_path: ${{ workflow.map_urls.return }}
-      output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      out_path: "animation.mp4"
-      fps: 30
-      start_frac: 0
-      end_frac: 1 
-      verbose: true
-      quality:
-        capture_format: "jpeg"
-        jpeg_quality: 92
-        crf: 18 
-        x264_preset: veryfast 
-        device_scale_factor: 1 
-      capture: 
-        gl: "auto"
-        workers: "auto"
-        settle_ms: 30 
-        settle_timeout_ms: 8000
-        head_ready_timeout_ms: 30000
-      
+  - title: Video Export
+    type: task-group
+    description: Export the animation as an MP4 video. Video export is off by default, so only the interactive map is produced. Turn on Export video to also create the video.
+    tasks:
+      # returns the map html path, or a skip sentinel when the toggle is off (which skips create_animation)
+      - name: Include video?
+        id: export_video_toggle
+        task: skip_file
+        partial:
+          filename: ${{ workflow.map_urls.return }}
+
+      - name: Video Settings
+        id: create_animation
+        task: render_animation
+        skipif:
+          conditions:
+            - any_dependency_skipped
+        partial:
+          html_path: ${{ workflow.export_video_toggle.return }}
+          output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+          out_path: "animation.mp4"
+          fps: 30
+          start_frac: 0
+          end_frac: 1
+          verbose: true
+          quality:
+            capture_format: "jpeg"
+            jpeg_quality: 92
+            crf: 18
+            x264_preset: veryfast
+            device_scale_factor: 1
+          capture:
+            gl: "auto"
+            workers: "auto"
+            settle_ms: 30
+            settle_timeout_ms: 8000
+            head_ready_timeout_ms: 30000
+
     # Map widgets
   - name: Create animated map widget
     id: animated_map_widget

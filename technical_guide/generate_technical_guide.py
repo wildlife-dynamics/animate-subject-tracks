@@ -258,13 +258,14 @@ def build():
             "EarthRanger subject group into an animated, terrain-aware 3D map. Each "
             "subject's track is cleaned into trajectory segments, stitched into one "
             "timestamped path per subject, draped onto a digital elevation model, and "
-            "played back on a shared clock over satellite imagery."
+            "played back on a shared clock over a basemap the user chooses (satellite "
+            "imagery by default)."
         ),
         p(
             "The workflow produces an interactive HTML map (deck.gl, via pydeck) with a "
-            "playback bar, an MP4 video recorded frame by frame from that map in a "
-            "headless browser, GeoParquet copies of the relocations and trajectories, "
-            "and a single-widget dashboard."
+            "playback bar, GeoParquet copies of the relocations and trajectories, and a "
+            "single-widget dashboard. It can optionally record an MP4 video frame by "
+            "frame from that map in a headless browser; video export is off by default."
         ),
         note(
             "The workflow has no groupers: " + code("set_groupers") + " is configured "
@@ -304,26 +305,30 @@ def build():
                     c("Terrain mesh and sampling ground height for draping"),
                 ],
                 [
-                    c("Esri World Imagery"),
+                    c("Esri basemap (user's choice)"),
                     c(
                         code(
-                            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                            "https://server.arcgisonline.com/ArcGIS/rest/services/&lt;service&gt;/MapServer/tile/{z}/{y}/{x}"
                         )
                     ),
-                    c("Satellite texture draped on the terrain mesh"),
+                    c(
+                        "Texture draped on the terrain mesh. One of the four basemaps in section 4b; "
+                        "World Imagery (Satellite) by default"
+                    ),
                 ],
             ],
             [3.6 * cm, 8.4 * cm, 5 * cm],
         ),
         sp(4),
         p(
-            "Both are needed by the interactive map and by the video renderer, so the "
-            "machine running the workflow (and anyone viewing the HTML map) needs "
-            "internet access."
+            "Both are needed by the interactive map and, when enabled, by the video "
+            "renderer, so the machine running the workflow (and anyone viewing the HTML "
+            "map) needs internet access."
         ),
         h2("2c. Headless Browser"),
         p(
-            "Video rendering uses Playwright's Chromium. The first time "
+            "Video rendering, which only runs when <b>Export video</b> is on (section 7), "
+            "uses Playwright's Chromium. The first time "
             + code("render_animation")
             + " runs in an environment it runs "
             + code("playwright install chromium")
@@ -428,6 +433,13 @@ def build():
         sp(4),
         h1("4. Terrain"),
         hr(),
+        p(
+            "On the configuration form, " + code("terrain_exaggeration") + ", "
+            + code("terrain_sampling") + " and " + code("terrain_layer")
+            + " are grouped in a single <b>Terrain</b> task group, shown as the "
+            "<b>Terrain Exaggeration</b>, <b>Terrain Sampling</b> and <b>Basemap</b> "
+            "sub-sections."
+        ),
         h2("4a. Elevation Decoder &amp; Exaggeration"),
         p(
             code("create_elevation_decoder")
@@ -446,11 +458,32 @@ def build():
             "terrain mesh and the track sampling, so the tracks always sit on the "
             "exaggerated surface."
         ),
-        h2("4b. Terrain Layer"),
+        h2("4b. Terrain Layer &amp; Basemap"),
         p(
             code("create_terrain_layer") + " defines the 3D terrain mesh from the "
-            "Terrarium tiles with the Esri World Imagery texture, zoom range 0–15 and "
-            "wireframe off."
+            "Terrarium tiles, zoom range 0–15 and wireframe off. Its "
+            + code("texture")
+            + " is left open on the form as the <b>Basemap</b> field. The spec's "
+            + code("rjsf-overrides")
+            + " turn it into a drop-down (a "
+            + code("oneOf")
+            + " list) of four Esri tile services, so users choose by name rather than "
+            "typing a URL. The video renderer records the same page, so it uses the "
+            "same basemap."
+        ),
+        make_table(
+            [
+                header_row("Option", "Esri service", "Notes"),
+                [c("Satellite"), c(code("World_Imagery")), c("Default")],
+                [c("Terrain"), c(code("World_Topo_Map")), c("Topographic map with contours and labels")],
+                [c("Roadmap"), c(code("World_Street_Map")), c("Street map")],
+                [
+                    c("USGS Hillshade"),
+                    c(code("Elevation/World_Hillshade")),
+                    c("Grey shaded relief"),
+                ],
+            ],
+            [3.4 * cm, 5.6 * cm, 8 * cm],
         ),
         h2("4c. Draping Tracks on Terrain"),
         p(
@@ -472,7 +505,9 @@ def build():
             + code("set_basemap_option")
             + ") are "
             "evaluated but not consumed by any later step: the terrain layer and "
-            "sampling take their tile URLs directly."
+            "sampling take their tile URLs directly, and the basemap choice is made on "
+            + code("terrain_layer")
+            + " itself."
         ),
     ]
 
@@ -528,7 +563,7 @@ def build():
                     c(code("compute_view_state_from_gdf")),
                     c(
                         "Computes the centre and zoom that fit the envelope (max zoom 15), "
-                        "plus the user's <b>Pitch</b> and <b>Bearing</b>."
+                        "plus the user's <b>Pitch</b> (default 45°) and <b>Bearing</b> (default 0°)."
                     ),
                 ],
             ],
@@ -541,6 +576,13 @@ def build():
         sp(4),
         h1("6. Animated Map"),
         hr(),
+        p(
+            "On the configuration form, " + code("trips_animation") + ", "
+            + code("create_controls") + " and " + code("timeline_animation")
+            + " are grouped in a single <b>Animation</b> task group, shown as the "
+            "<b>Create Animation</b>, <b>Playback Control</b> and <b>Playback Length "
+            "&amp; Smoothness</b> sub-sections."
+        ),
         h2("6a. Trips Animation"),
         p(
             code("create_trips_animation") + " defines how each track plays back. Each "
@@ -596,8 +638,11 @@ def build():
             "bottom or top). "
             + code("create_timeline_animation")
             + " builds the shared "
-            "clock: playback length <b>Duration S</b> (default 30 s), a 30 fps cap for "
-            "the interactive map, and optional <b>Auto Rotate Speed</b>."
+            "clock. The user sets the playback length <b>Duration S</b> (default 30 s) "
+            "and <b>Fps Limit</b> (default 30), which caps how often the interactive map "
+            "redraws during playback. "
+            + code("auto_rotate_speed")
+            + " is fixed at 0 in the spec, so the map does not rotate while it plays."
         ),
         h2("6d. Drawing &amp; Saving"),
         p(
@@ -621,7 +666,39 @@ def build():
         h1("7. Video Rendering"),
         hr(),
         p(
-            code("render_animation")
+            "Video export is optional and <b>off by default</b>. Both video tasks sit in "
+            "the <b>Video Export</b> task group on the form: <b>Include video?</b> ("
+            + code("export_video_toggle")
+            + ") and <b>Video Settings</b> ("
+            + code("create_animation")
+            + ")."
+        ),
+        p(
+            code("export_video_toggle")
+            + " uses "
+            + code("skip_file")
+            + " (ecoscope-workflows-ext-ste) with the user's <b>Export video</b> "
+            "switch. When the switch is on, it passes the "
+            + code("animated_map.html")
+            + " path through. When it is off, it returns a skip sentinel, and "
+            + code("create_animation")
+            + "'s "
+            + code("any_dependency_skipped")
+            + " condition then skips the whole render. No other task depends on the video, "
+            "so the map, GeoParquet files and dashboard are unaffected."
+        ),
+        note(
+            "The form default comes from an "
+            + code("rjsf-overrides")
+            + " entry. "
+            + code("skip_file")
+            + "'s own default is also off, so a config that omits "
+            + code("enabled")
+            + " skips the video too."
+        ),
+        p(
+            "When enabled, "
+            + code("render_animation")
             + " records "
             + code("animated_map.html")
             + " to "
@@ -783,7 +860,7 @@ def build():
                 [
                     c(code("animation.mp4")),
                     c(code("create_animation")),
-                    c("H.264 video of the animation"),
+                    c("H.264 video of the animation (only when <b>Export video</b> is on)"),
                 ],
             ],
             [6 * cm, 4.6 * cm, 6.4 * cm],
@@ -808,10 +885,19 @@ def build():
                     ),
                 ],
                 [
+                    c(code("export_video_toggle")),
+                    c("Default"),
+                    c(
+                        "Not a skip condition: returns a skip sentinel instead of the HTML path when "
+                        "<b>Export video</b> is off."
+                    ),
+                ],
+                [
                     c(code("create_animation")),
                     c(code("any_dependency_skipped")),
                     c(
-                        "Its input is a file path, not a dataframe, so only the upstream-skip check applies."
+                        "Its input is a file path, not a dataframe, so only the upstream-skip check applies. "
+                        "Skipped whenever video export is off."
                     ),
                 ],
                 [
@@ -834,7 +920,7 @@ def build():
                 ],
                 [
                     c("Terrain"),
-                    c("Elevation decoder → terrain layer + terrain sampling"),
+                    c("Elevation decoder → terrain layer (+ chosen basemap) + terrain sampling"),
                 ],
                 [
                     c("Animation data"),
@@ -849,7 +935,10 @@ def build():
                         "Trips animation + trips layer → animated layer; controls → timeline; all → draw_animated_map → HTML"
                     ),
                 ],
-                [c("Video"), c("HTML → headless Chromium frames → ffmpeg → MP4")],
+                [
+                    c("Video (optional)"),
+                    c("HTML → Export video toggle → headless Chromium frames → ffmpeg → MP4"),
+                ],
                 [c("Dashboard"), c("HTML → map widget → gather_dashboard")],
             ],
             [3.6 * cm, 13.4 * cm],
@@ -879,7 +968,7 @@ def build():
                 [
                     c("ecoscope-workflows-ext-ste"),
                     c("0.0.0rc1.*"),
-                    c("Envelope, view state and hex-to-RGBA tasks"),
+                    c("Envelope, view state, hex-to-RGBA and video export toggle tasks"),
                 ],
                 [
                     c("ecoscope-workflows-ext-mep"),

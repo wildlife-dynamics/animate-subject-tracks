@@ -32,12 +32,12 @@
 <body>
 
 <h1 id="animate-subject-tracks-workflow">Animate Subject Tracks Workflow</h1>
-<p>Turns an EarthRanger subject group's GPS history into an animated 3D map: each subject's track sweeps across real terrain as time passes, and the same animation is exported as an MP4 video.</p>
+<p>Turns an EarthRanger subject group's GPS history into an animated 3D map: each subject's track sweeps across real terrain as time passes. The same animation can optionally be exported as an MP4 video.</p>
 <p>Full documentation: <strong><a href="https://wildlife-dynamics.github.io/animate-subject-tracks/">wildlife-dynamics.github.io/animate-subject-tracks</a></strong> (User Guide, Technical Guide and Troubleshooting).</p>
 <h2 id="what-it-produces">What it produces</h2>
 <ul>
-<li>An <strong>interactive animated 3D map</strong> (<code>animated_map.html</code>). Each subject is drawn as a trail in its EarthRanger colour, with a marker at its current position, over satellite imagery draped on 3D terrain. It has a playback bar (play/pause, restart, time slider, speed) and a legend of subject names.</li>
-<li>An <strong>MP4 video</strong> (<code>animation.mp4</code>) of the same animation, recorded with the camera movement you choose.</li>
+<li>An <strong>interactive animated 3D map</strong> (<code>animated_map.html</code>). Each subject is drawn as a trail in its EarthRanger colour, with a marker at its current position, over a basemap of your choice (satellite imagery by default) draped on 3D terrain. It has a playback bar (play/pause, restart, time slider, speed) and a legend of subject names.</li>
+<li>An optional <strong>MP4 video</strong> (<code>animation.mp4</code>) of the same animation, recorded with the camera movement you choose. Video export is off by default.</li>
 <li><strong>GeoParquet files</strong> of the cleaned relocations and trajectories, for further analysis.</li>
 <li>A <strong>dashboard</strong> showing the animated map, with the workflow details and time range.</li>
 </ul>
@@ -45,10 +45,10 @@
 <ul>
 <li>An <strong>EarthRanger connection</strong> configured in the workflow runner.</li>
 <li>The name of a <strong>subject group</strong> in EarthRanger, e.g. <code>Elephants</code>. Every subject in the group gets its own track.</li>
-<li>Internet access while the workflow runs. Terrain elevation tiles (AWS Terrarium) and satellite imagery (Esri World Imagery) are fetched live.</li>
+<li>Internet access while the workflow runs. Terrain elevation tiles (AWS Terrarium) and basemap imagery (Esri ArcGIS Online) are fetched live.</li>
 </ul>
 <blockquote>
-<p>Longer time ranges and larger subject groups take longer to fetch and to record as video. For a first run, a range of a few days to a few weeks works well.</p>
+<p>Longer time ranges and larger subject groups take longer to fetch and, if video export is on, to record as video. For a first run, a range of a few days to a few weeks works well.</p>
 </blockquote>
 <hr />
 <h2 id="1-load-the-workflow">1. Load the Workflow</h2>
@@ -162,7 +162,9 @@
 </tr>
 </tbody>
 </table>
-<h3 id="terrain-exaggeration-advanced">Terrain Exaggeration <em>(advanced)</em></h3>
+<h3 id="terrain">Terrain</h3>
+<p>Controls how the 3D terrain looks and how the tracks sit on it.</p>
+<h4 id="terrain-exaggeration-advanced">Terrain Exaggeration <em>(advanced)</em></h4>
 <table>
 <thead>
 <tr>
@@ -179,7 +181,7 @@
 </tr>
 </tbody>
 </table>
-<h3 id="terrain-sampling-advanced">Terrain Sampling <em>(advanced)</em></h3>
+<h4 id="terrain-sampling-advanced">Terrain Sampling <em>(advanced)</em></h4>
 <table>
 <thead>
 <tr>
@@ -201,6 +203,49 @@
 </tr>
 </tbody>
 </table>
+<h4 id="basemap">Basemap</h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Basemap</td>
+<td>Satellite</td>
+<td>Map imagery draped over the 3D terrain, in both the interactive map and the video</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Satellite <em>(default)</em></td>
+<td>Esri World Imagery aerial and satellite photos</td>
+</tr>
+<tr>
+<td>Terrain</td>
+<td>Esri World Topographic Map, with contours, roads and place names</td>
+</tr>
+<tr>
+<td>Roadmap</td>
+<td>Esri World Street Map</td>
+</tr>
+<tr>
+<td>USGS Hillshade</td>
+<td>Esri World Hillshade, a grey shaded-relief map that emphasises landforms</td>
+</tr>
+</tbody>
+</table>
 <h3 id="map-zoom-extent-advanced">Map Zoom &amp; Extent <em>(advanced)</em></h3>
 <p>The map is automatically centred and zoomed to fit every track. These two fields set the viewing angle, which the video cameras also use.</p>
 <table>
@@ -214,7 +259,7 @@
 <tbody>
 <tr>
 <td>Pitch</td>
-<td><code>0</code></td>
+<td><code>45</code></td>
 <td>Tilt in degrees (0–90). <code>0</code> looks straight down; higher values tilt towards the horizon for a 3D view.</td>
 </tr>
 <tr>
@@ -224,7 +269,9 @@
 </tr>
 </tbody>
 </table>
-<h3 id="create-animation-advanced">Create Animation <em>(advanced)</em></h3>
+<h3 id="animation">Animation</h3>
+<p>Controls how the tracks animate on the map.</p>
+<h4 id="create-animation-advanced">Create Animation <em>(advanced)</em></h4>
 <p><strong>Marker icon</strong> sets what is drawn at each subject's current position:</p>
 <table>
 <thead>
@@ -252,9 +299,9 @@
 </tr>
 </tbody>
 </table>
-<h3 id="create-controls-advanced">Create Controls <em>(advanced)</em></h3>
+<h4 id="playback-control-advanced">Playback Control <em>(advanced)</em></h4>
 <p>Sets which parts of the playback bar appear on the interactive map: play/pause, restart, time slider, playback clock, data time, speed button (0.5×, 1×, 2×, 4×), and whether the bar sits at the <strong>bottom</strong> or <strong>top</strong>. All are shown by default. <strong>Time Format</strong> shows the data time as a full date-time, a date (default), or time elapsed since the start.</p>
-<h3 id="create-timeline-animation-advanced">Create Timeline Animation <em>(advanced)</em></h3>
+<h4 id="playback-length-smoothness-advanced">Playback Length &amp; Smoothness <em>(advanced)</em></h4>
 <table>
 <thead>
 <tr>
@@ -270,13 +317,33 @@
 <td>How long playback takes from the first location to the last. The video uses the same length by default.</td>
 </tr>
 <tr>
-<td>Auto Rotate Speed</td>
-<td><code>0</code></td>
-<td>Slowly rotates the map while it plays, in degrees per second. <code>0</code> is off; negative values rotate counter-clockwise.</td>
+<td>Fps Limit</td>
+<td><code>30</code></td>
+<td>Maximum number of times per second the interactive map redraws while playing. Higher values look smoother but need a faster computer; lower values reduce load on slower machines.</td>
 </tr>
 </tbody>
 </table>
-<h3 id="animation-video-advanced">Animation Video <em>(advanced)</em></h3>
+<h3 id="video-export-advanced">Video Export <em>(advanced)</em></h3>
+<p>Exports the animation as an MP4 video. <strong>Video export is off by default</strong>, so only the interactive map is produced.</p>
+<h4 id="include-video">Include video?</h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Export video</td>
+<td>Off</td>
+<td>Turn on to also render the animation as an MP4 video. Recording a video makes the workflow take longer to run.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="video-settings">Video Settings</h4>
+<p>These settings only apply when <strong>Export video</strong> is on.</p>
 <table>
 <thead>
 <tr>
@@ -344,8 +411,8 @@
 </table>
 <hr />
 <h2 id="3-run-the-workflow">3. Run the Workflow</h2>
-<p>Click <strong>Submit</strong>. The workflow fetches the observations, cleans them into trajectories, drapes them on the terrain, builds the animated map, then records the video frame by frame in a headless browser.</p>
-<p>Recording the video is usually the slowest step. The default settings give 900 frames (30 seconds at 30 fps). Higher resolutions and longer durations take proportionally longer.</p>
+<p>Click <strong>Submit</strong>. The workflow fetches the observations, cleans them into trajectories, drapes them on the terrain and builds the animated map. If <strong>Export video</strong> is on, it then records the video frame by frame in a headless browser; otherwise that step is skipped.</p>
+<p>When it's on, recording the video is usually the slowest step. The default settings give 900 frames (30 seconds at 30 fps). Higher resolutions and longer durations take proportionally longer.</p>
 <hr />
 <h2 id="4-outputs">4. Outputs</h2>
 <p>All files are written to the workflow's results folder (<code>ECOSCOPE_WORKFLOWS_RESULTS</code>).</p>
@@ -363,7 +430,7 @@
 </tr>
 <tr>
 <td><code>animation.mp4</code></td>
-<td>H.264 video of the animation</td>
+<td>H.264 video of the animation. Only written when <strong>Export video</strong> is on.</td>
 </tr>
 <tr>
 <td><code>relocations_&lt;hash&gt;.geoparquet</code></td>
@@ -395,12 +462,16 @@
 <td>The Trajectory Segment Filter is dropping segments as noise; loosen its limits if your data has long gaps or unusual speeds</td>
 </tr>
 <tr>
+<td>No <code>animation.mp4</code> in the results</td>
+<td>Video export is off by default. Turn on <strong>Video Export → Export video</strong> (under the advanced settings) and run again.</td>
+</tr>
+<tr>
 <td>Trails float above or sink into the terrain</td>
-<td>Adjust <strong>Terrain Sampling → Offset</strong>. If you changed <strong>Terrain Exaggeration</strong>, the trails are re-draped to match automatically.</td>
+<td>Adjust <strong>Terrain → Terrain Sampling → Offset</strong>. If you changed <strong>Terrain Exaggeration</strong>, the trails are re-draped to match automatically.</td>
 </tr>
 <tr>
 <td>The run takes a long time</td>
-<td>A wide time range, a large group, or a long/high-resolution video. Try 720p and a shorter duration first.</td>
+<td>A wide time range, a large group, or a long/high-resolution video. Turn video export off, or try 720p and a shorter duration first.</td>
 </tr>
 <tr>
 <td>The 3D model doesn't appear</td>

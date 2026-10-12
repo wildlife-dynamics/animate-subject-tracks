@@ -85,6 +85,7 @@ from ecoscope_workflows_ext_mep.tasks.animate import (
 from ecoscope_workflows_ext_mep.tasks.animate import (
     trajectory_to_trips as trajectory_to_trips,
 )
+from ecoscope_workflows_ext_ste.tasks.skip import skip_file as skip_file
 from ecoscope_workflows_ext_ste.tasks.spatial_operations import (
     compute_view_state_from_gdf as compute_view_state_from_gdf,
 )
@@ -352,6 +353,51 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
+    terrain_sampling = (
+        task(create_terrain_sampling)
+        .validate()
+        .set_task_instance_id("terrain_sampling")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            elevation_data="https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
+            elevation_decoder=terrain_exaggeration,
+            **(params.get("terrain_sampling") or {}),
+        )
+        .call()
+    )
+
+    terrain_layer = (
+        task(create_terrain_layer)
+        .validate()
+        .set_task_instance_id("terrain_layer")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            min_zoom=0,
+            max_zoom=15,
+            wireframe=False,
+            elevation_data="https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
+            elevation_decoder=terrain_exaggeration,
+            **(params.get("terrain_layer") or {}),
+        )
+        .call()
+    )
+
     custom_basemap_urls = (
         task(set_basemap_urls)
         .validate()
@@ -438,27 +484,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
-    terrain_sampling = (
-        task(create_terrain_sampling)
-        .validate()
-        .set_task_instance_id("terrain_sampling")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            elevation_data="https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
-            elevation_decoder=terrain_exaggeration,
-            **(params.get("terrain_sampling") or {}),
-        )
-        .call()
-    )
-
     drape_terrain = (
         task(drape_trips_on_terrain)
         .validate()
@@ -476,31 +501,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             trips_gdf=trajs_trips,
             terrain=terrain_sampling,
             **(params.get("drape_terrain") or {}),
-        )
-        .call()
-    )
-
-    terrain_layer = (
-        task(create_terrain_layer)
-        .validate()
-        .set_task_instance_id("terrain_layer")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            min_zoom=0,
-            max_zoom=15,
-            wireframe=False,
-            elevation_data="https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
-            texture="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-            elevation_decoder=terrain_exaggeration,
-            **(params.get("terrain_layer") or {}),
         )
         .call()
     )
@@ -591,6 +591,44 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
+    create_controls = (
+        task(create_playback_controls)
+        .validate()
+        .set_task_instance_id("create_controls")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(speeds=[0.5, 1, 2, 4], **(params.get("create_controls") or {}))
+        .call()
+    )
+
+    timeline_animation = (
+        task(create_timeline_animation)
+        .validate()
+        .set_task_instance_id("timeline_animation")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            auto_rotate_speed=0,
+            controls=create_controls,
+            **(params.get("timeline_animation") or {}),
+        )
+        .call()
+    )
+
     trips_layer = (
         task(create_trips_layer)
         .validate()
@@ -655,44 +693,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
-    create_controls = (
-        task(create_playback_controls)
-        .validate()
-        .set_task_instance_id("create_controls")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(speeds=[0.5, 1, 2, 4], **(params.get("create_controls") or {}))
-        .call()
-    )
-
-    timeline_animation = (
-        task(create_timeline_animation)
-        .validate()
-        .set_task_instance_id("timeline_animation")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            fps_limit=30,
-            controls=create_controls,
-            **(params.get("timeline_animation") or {}),
-        )
-        .call()
-    )
-
     draw_animation = (
         task(draw_animated_map)
         .validate()
@@ -743,6 +743,23 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
+    export_video_toggle = (
+        task(skip_file)
+        .validate()
+        .set_task_instance_id("export_video_toggle")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(filename=map_urls, **(params.get("export_video_toggle") or {}))
+        .call()
+    )
+
     create_animation = (
         task(render_animation)
         .validate()
@@ -756,7 +773,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            html_path=map_urls,
+            html_path=export_video_toggle,
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             out_path="animation.mp4",
             fps=30,
