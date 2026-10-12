@@ -154,6 +154,20 @@
       "required": [],
       "title": "Terrain Sampling"
     },
+    "terrain_layer": {
+      "additionalProperties": false,
+      "properties": {
+        "texture": {
+          "default": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          "title": "Texture",
+          "type": "string",
+          "description": "URL template for tiles draped over the terrain."
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Basemap"
+    },
     "trips_view_state": {
       "additionalProperties": false,
       "properties": {
@@ -300,7 +314,7 @@
       },
       "type": "object",
       "required": [],
-      "title": "Create Controls"
+      "title": "Playback Control"
     },
     "timeline_animation": {
       "additionalProperties": false,
@@ -313,17 +327,32 @@
           "description": "Playback length in seconds, from the start of the timeline to its end.",
           "ecoscope:advanced": true
         },
-        "auto_rotate_speed": {
-          "default": 0.0,
-          "title": "Auto Rotate Speed",
+        "fps_limit": {
+          "default": 30.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Fps Limit",
           "type": "number",
-          "description": "Camera rotation speed in degrees per second. 0 = off; positive = clockwise; negative = counter-clockwise.",
           "ecoscope:advanced": true
         }
       },
       "type": "object",
       "required": [],
-      "title": "Create Timeline Animation"
+      "title": "Playback Length & Smoothness"
+    },
+    "export_video_toggle": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean",
+          "description": "Render the animated map as a video file. When off, the video creation step is skipped entirely.",
+          "ecoscope:advanced": true
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Include video?"
     },
     "create_animation": {
       "additionalProperties": false,
@@ -393,7 +422,7 @@
       },
       "required": [],
       "type": "object",
-      "title": "Animation Video"
+      "title": "Video Settings"
     }
   },
   "$defs": {
@@ -1407,7 +1436,7 @@
     "timeline_animation": {
       "ui:order": [
         "duration_s",
-        "auto_rotate_speed"
+        "fps_limit"
       ]
     },
     "create_animation": {
@@ -1425,10 +1454,12 @@
       "convert_to_trajs",
       "terrain_exaggeration",
       "terrain_sampling",
+      "terrain_layer",
       "trips_view_state",
       "trips_animation",
       "create_controls",
       "timeline_animation",
+      "export_video_toggle",
       "create_animation"
     ]
   },

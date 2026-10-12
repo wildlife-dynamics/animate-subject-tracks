@@ -118,45 +118,85 @@
       "title": "Trajectory Segment Filter",
       "description": "Clean the tracks before animating by removing segments that are too long, too short, too slow or too fast to be real movement, such as GPS jumps."
     },
-    "terrain_exaggeration": {
-      "additionalProperties": false,
-      "properties": {
-        "exaggeration": {
-          "default": 1.0,
-          "exclusiveMinimum": 0.0,
-          "title": "Exaggeration",
-          "type": "number",
-          "description": "Vertical exaggeration factor. 1.0 = true scale, 2.0 = 2x heights.",
-          "ecoscope:advanced": true
-        }
-      },
+    "Terrain": {
       "type": "object",
-      "required": [],
-      "title": "Terrain Exaggeration",
-      "description": "Control how strongly hills and valleys are raised on the 3D terrain. Increase it to make relief easier to see in flat landscapes."
-    },
-    "terrain_sampling": {
-      "additionalProperties": false,
+      "description": "Control how the 3D terrain looks and how tracks sit on it.",
+      "ecoscope:task_group": true,
       "properties": {
-        "offset": {
-          "default": 30,
-          "title": "Offset",
-          "type": "number",
-          "description": "Metres added above the sampled ground at every vertex.",
-          "ecoscope:advanced": true
+        "terrain_exaggeration": {
+          "additionalProperties": false,
+          "properties": {
+            "exaggeration": {
+              "default": 1.0,
+              "exclusiveMinimum": 0.0,
+              "title": "Exaggeration",
+              "type": "number",
+              "description": "Vertical exaggeration factor. 1.0 = true scale, 2.0 = 2x heights.",
+              "ecoscope:advanced": true
+            }
+          },
+          "type": "object",
+          "required": [],
+          "title": "Terrain Exaggeration",
+          "description": "Control how strongly hills and valleys are raised on the 3D terrain. Increase it to make relief easier to see in flat landscapes."
         },
-        "ground_elevation": {
-          "default": 1000.0,
-          "title": "Ground Elevation",
-          "type": "number",
-          "description": "Constant ground used only if DEM sampling fails.",
-          "ecoscope:advanced": true
+        "terrain_sampling": {
+          "additionalProperties": false,
+          "properties": {
+            "offset": {
+              "default": 30,
+              "title": "Offset",
+              "type": "number",
+              "description": "Metres added above the sampled ground at every vertex.",
+              "ecoscope:advanced": true
+            },
+            "ground_elevation": {
+              "default": 1000.0,
+              "title": "Ground Elevation",
+              "type": "number",
+              "description": "Constant ground used only if DEM sampling fails.",
+              "ecoscope:advanced": true
+            }
+          },
+          "type": "object",
+          "required": [],
+          "title": "Terrain Sampling",
+          "description": "Control how tracks are draped onto the 3D terrain so they sit on the ground surface rather than floating above it or disappearing below it."
+        },
+        "terrain_layer": {
+          "additionalProperties": false,
+          "properties": {
+            "texture": {
+              "default": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+              "title": "Basemap",
+              "type": "string",
+              "description": "Map imagery draped over the terrain in the interactive map and the video.",
+              "oneOf": [
+                {
+                  "const": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                  "title": "Satellite"
+                },
+                {
+                  "const": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+                  "title": "Terrain"
+                },
+                {
+                  "const": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+                  "title": "Roadmap"
+                },
+                {
+                  "const": "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}",
+                  "title": "USGS Hillshade"
+                }
+              ]
+            }
+          },
+          "type": "object",
+          "required": [],
+          "title": "Basemap",
+          "description": "Choose the basemap imagery draped over the 3D terrain."
         }
-      },
-      "type": "object",
-      "required": [],
-      "title": "Terrain Sampling",
-      "description": "Control how tracks are draped onto the 3D terrain so they sit on the ground surface rather than floating above it or disappearing below it."
+      }
     },
     "Map Zoom & Extent": {
       "type": "object",
@@ -167,7 +207,7 @@
           "additionalProperties": false,
           "properties": {
             "pitch": {
-              "default": 0,
+              "default": 45,
               "maximum": 90,
               "minimum": 0,
               "title": "Pitch",
@@ -191,224 +231,254 @@
         }
       }
     },
-    "trips_animation": {
-      "additionalProperties": false,
-      "properties": {
-        "head": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/DotMarker"
-            },
-            {
-              "$ref": "#/$defs/AnimalModelMarker"
-            },
-            {
-              "$ref": "#/$defs/ScenegraphLayerDefinition"
-            },
-            {
-              "$ref": "#/$defs/NoMarker"
-            }
-          ],
-          "default": {
-            "marker": "dot",
-            "get_radius": 6.0,
-            "radius_units": "pixels",
-            "get_fill_color": null,
-            "stroked": true,
-            "get_line_color": [
-              255,
-              255,
-              255
-            ],
-            "get_line_width": 1.5,
-            "line_width_units": "pixels",
-            "opacity": 1
-          },
-          "title": "Marker icon",
-          "description": "Marker drawn at each subject's current position: a flat dot, a preset 3D animal, your own 3D glTF/GLB model, or none.",
-          "ecoscope:advanced": true
-        }
-      },
+    "Animation": {
       "type": "object",
-      "required": [],
-      "title": "Create Animation",
-      "description": "Choose the marker shown at each subject's current position as its track plays."
+      "description": "Control how the tracks animate on the map.",
+      "ecoscope:task_group": true,
+      "properties": {
+        "trips_animation": {
+          "additionalProperties": false,
+          "properties": {
+            "head": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DotMarker"
+                },
+                {
+                  "$ref": "#/$defs/AnimalModelMarker"
+                },
+                {
+                  "$ref": "#/$defs/ScenegraphLayerDefinition"
+                },
+                {
+                  "$ref": "#/$defs/NoMarker"
+                }
+              ],
+              "default": {
+                "marker": "dot",
+                "get_radius": 6.0,
+                "radius_units": "pixels",
+                "get_fill_color": null,
+                "stroked": true,
+                "get_line_color": [
+                  255,
+                  255,
+                  255
+                ],
+                "get_line_width": 1.5,
+                "line_width_units": "pixels",
+                "opacity": 1
+              },
+              "title": "Marker icon",
+              "description": "Marker drawn at each subject's current position: a flat dot, a preset 3D animal, your own 3D glTF/GLB model, or none.",
+              "ecoscope:advanced": true
+            }
+          },
+          "type": "object",
+          "required": [],
+          "title": "Create Animation",
+          "description": "Choose the marker shown at each subject's current position as its track plays."
+        },
+        "create_controls": {
+          "additionalProperties": false,
+          "properties": {
+            "visible": {
+              "default": true,
+              "title": "Visible",
+              "type": "boolean",
+              "description": "Show the playback bar at all.",
+              "ecoscope:advanced": true
+            },
+            "show_play": {
+              "default": true,
+              "title": "Show Play",
+              "type": "boolean",
+              "description": "Play/pause button.",
+              "ecoscope:advanced": true
+            },
+            "show_restart": {
+              "default": true,
+              "title": "Show Restart",
+              "type": "boolean",
+              "description": "Restart button.",
+              "ecoscope:advanced": true
+            },
+            "show_scrubber": {
+              "default": true,
+              "title": "Show Scrubber",
+              "type": "boolean",
+              "description": "Slider for jumping to any moment.",
+              "ecoscope:advanced": true
+            },
+            "show_clock": {
+              "default": true,
+              "title": "Show Clock",
+              "type": "boolean",
+              "description": "Playback position / total length, e.g. 0:12 / 0:30.",
+              "ecoscope:advanced": true
+            },
+            "show_time": {
+              "default": true,
+              "title": "Show Time",
+              "type": "boolean",
+              "description": "Current time in the data.",
+              "ecoscope:advanced": true
+            },
+            "time_format": {
+              "default": "date",
+              "enum": [
+                "datetime",
+                "date",
+                "elapsed"
+              ],
+              "title": "Time Format",
+              "type": "string",
+              "description": "Data time as 'datetime' (2024-01-01 06:00 UTC), 'date', or 'elapsed' since the start.",
+              "ecoscope:advanced": true
+            },
+            "show_speed": {
+              "default": true,
+              "title": "Show Speed",
+              "type": "boolean",
+              "description": "Button cycling through `speeds`.",
+              "ecoscope:advanced": true
+            },
+            "position": {
+              "default": "bottom",
+              "enum": [
+                "bottom",
+                "top"
+              ],
+              "title": "Position",
+              "type": "string",
+              "description": "Where the bar sits on the map.",
+              "ecoscope:advanced": true
+            }
+          },
+          "type": "object",
+          "required": [],
+          "title": "Playback Control",
+          "description": "Choose which playback controls appear on the interactive map, such as play/pause, the time slider and speed buttons, and where they sit."
+        },
+        "timeline_animation": {
+          "additionalProperties": false,
+          "properties": {
+            "duration_s": {
+              "default": 30.0,
+              "exclusiveMinimum": 0.0,
+              "title": "Duration S",
+              "type": "number",
+              "description": "Playback length in seconds, from the start of the timeline to its end.",
+              "ecoscope:advanced": true
+            },
+            "fps_limit": {
+              "default": 30.0,
+              "exclusiveMinimum": 0.0,
+              "title": "Fps Limit",
+              "type": "number",
+              "ecoscope:advanced": true,
+              "description": "Maximum number of times per second the interactive map redraws while playing. Higher values look smoother but need a faster computer; lower values reduce load on slower machines."
+            }
+          },
+          "type": "object",
+          "required": [],
+          "title": "Playback Length & Smoothness",
+          "description": "Set how long the animation takes to play from the first location to the last."
+        }
+      }
     },
-    "create_controls": {
-      "additionalProperties": false,
-      "properties": {
-        "visible": {
-          "default": true,
-          "title": "Visible",
-          "type": "boolean",
-          "description": "Show the playback bar at all.",
-          "ecoscope:advanced": true
-        },
-        "show_play": {
-          "default": true,
-          "title": "Show Play",
-          "type": "boolean",
-          "description": "Play/pause button.",
-          "ecoscope:advanced": true
-        },
-        "show_restart": {
-          "default": true,
-          "title": "Show Restart",
-          "type": "boolean",
-          "description": "Restart button.",
-          "ecoscope:advanced": true
-        },
-        "show_scrubber": {
-          "default": true,
-          "title": "Show Scrubber",
-          "type": "boolean",
-          "description": "Slider for jumping to any moment.",
-          "ecoscope:advanced": true
-        },
-        "show_clock": {
-          "default": true,
-          "title": "Show Clock",
-          "type": "boolean",
-          "description": "Playback position / total length, e.g. 0:12 / 0:30.",
-          "ecoscope:advanced": true
-        },
-        "show_time": {
-          "default": true,
-          "title": "Show Time",
-          "type": "boolean",
-          "description": "Current time in the data.",
-          "ecoscope:advanced": true
-        },
-        "time_format": {
-          "default": "date",
-          "enum": [
-            "datetime",
-            "date",
-            "elapsed"
-          ],
-          "title": "Time Format",
-          "type": "string",
-          "description": "Data time as 'datetime' (2024-01-01 06:00 UTC), 'date', or 'elapsed' since the start.",
-          "ecoscope:advanced": true
-        },
-        "show_speed": {
-          "default": true,
-          "title": "Show Speed",
-          "type": "boolean",
-          "description": "Button cycling through `speeds`.",
-          "ecoscope:advanced": true
-        },
-        "position": {
-          "default": "bottom",
-          "enum": [
-            "bottom",
-            "top"
-          ],
-          "title": "Position",
-          "type": "string",
-          "description": "Where the bar sits on the map.",
-          "ecoscope:advanced": true
-        }
-      },
+    "Video Export": {
       "type": "object",
-      "required": [],
-      "title": "Create Controls",
-      "description": "Choose which playback controls appear on the interactive map, such as play/pause, the time slider and speed buttons, and where they sit."
-    },
-    "timeline_animation": {
-      "additionalProperties": false,
+      "description": "Export the animation as an MP4 video. Video export is off by default, so only the interactive map is produced. Turn on Export video to also create the video.",
+      "ecoscope:task_group": true,
       "properties": {
-        "duration_s": {
-          "default": 30.0,
-          "exclusiveMinimum": 0.0,
-          "title": "Duration S",
-          "type": "number",
-          "description": "Playback length in seconds, from the start of the timeline to its end.",
-          "ecoscope:advanced": true
+        "export_video_toggle": {
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "default": false,
+              "title": "Export video",
+              "type": "boolean",
+              "description": "Off by default. Turn on to also render the animation as an MP4 video. Exporting a video makes the workflow take longer to run.",
+              "ecoscope:advanced": true
+            }
+          },
+          "type": "object",
+          "required": [],
+          "title": "Include video?"
         },
-        "auto_rotate_speed": {
-          "default": 0.0,
-          "title": "Auto Rotate Speed",
-          "type": "number",
-          "description": "Camera rotation speed in degrees per second. 0 = off; positive = clockwise; negative = counter-clockwise.",
-          "ecoscope:advanced": true
+        "create_animation": {
+          "additionalProperties": false,
+          "properties": {
+            "camera": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/StaticCamera"
+                },
+                {
+                  "$ref": "#/$defs/FollowCamera"
+                },
+                {
+                  "$ref": "#/$defs/OrbitCamera"
+                },
+                {
+                  "$ref": "#/$defs/FitCamera"
+                },
+                {
+                  "$ref": "#/$defs/CinematicCamera"
+                },
+                {
+                  "$ref": "#/$defs/KeyframesCamera"
+                },
+                {
+                  "$ref": "#/$defs/FlyAroundCamera"
+                }
+              ],
+              "default": {
+                "type_": "static",
+                "zoom_offset": 0.0
+              },
+              "title": "Camera",
+              "description": "Camera for the clip. Every option frames whatever is animating (trips, points, polygons, ...) at the video's size, with the map's pitch and bearing: Static (whole scene), Follow the action, Orbit, Fit everything so far, Cinematic fly-through, Keyframes (waypoints, or follow one subject), or Fly to & around.",
+              "ecoscope:advanced": true
+            },
+            "duration": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/DurationConfig"
+                }
+              ],
+              "default": {
+                "auto": true,
+                "seconds": 30.0
+              },
+              "title": "Duration",
+              "description": "Video duration. 'auto' uses the animation's own playback length (duration_s).",
+              "ecoscope:advanced": true
+            },
+            "resolution": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PresetResolution"
+                },
+                {
+                  "$ref": "#/$defs/CustomResolution"
+                }
+              ],
+              "default": {
+                "preset": "720p"
+              },
+              "title": "Resolution",
+              "description": "Output video resolution: a preset (720p/1080p/4K) or 'custom' width/height.",
+              "ecoscope:advanced": true
+            }
+          },
+          "required": [],
+          "type": "object",
+          "title": "Video Settings",
+          "description": "Choose how the camera moves, how long the video runs and its resolution."
         }
-      },
-      "type": "object",
-      "required": [],
-      "title": "Create Timeline Animation",
-      "description": "Set how long the animation takes to play from the first location to the last, and whether the map slowly rotates while it plays."
-    },
-    "create_animation": {
-      "additionalProperties": false,
-      "properties": {
-        "camera": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/StaticCamera"
-            },
-            {
-              "$ref": "#/$defs/FollowCamera"
-            },
-            {
-              "$ref": "#/$defs/OrbitCamera"
-            },
-            {
-              "$ref": "#/$defs/FitCamera"
-            },
-            {
-              "$ref": "#/$defs/CinematicCamera"
-            },
-            {
-              "$ref": "#/$defs/KeyframesCamera"
-            },
-            {
-              "$ref": "#/$defs/FlyAroundCamera"
-            }
-          ],
-          "default": {
-            "type_": "static",
-            "zoom_offset": 0.0
-          },
-          "title": "Camera",
-          "description": "Camera for the clip. Every option frames whatever is animating (trips, points, polygons, ...) at the video's size, with the map's pitch and bearing: Static (whole scene), Follow the action, Orbit, Fit everything so far, Cinematic fly-through, Keyframes (waypoints, or follow one subject), or Fly to & around.",
-          "ecoscope:advanced": true
-        },
-        "duration": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/DurationConfig"
-            }
-          ],
-          "default": {
-            "auto": true,
-            "seconds": 30.0
-          },
-          "title": "Duration",
-          "description": "Video duration. 'auto' uses the animation's own playback length (duration_s).",
-          "ecoscope:advanced": true
-        },
-        "resolution": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PresetResolution"
-            },
-            {
-              "$ref": "#/$defs/CustomResolution"
-            }
-          ],
-          "default": {
-            "preset": "720p"
-          },
-          "title": "Resolution",
-          "description": "Output video resolution: a preset (720p/1080p/4K) or 'custom' width/height.",
-          "ecoscope:advanced": true
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Animation Video",
-      "description": "Export the animation as an MP4 video. Choose how the camera moves, how long the video runs and its resolution."
+      }
     }
   },
   "$defs": {
@@ -1394,11 +1464,18 @@
         "time_format"
       ]
     },
-    "terrain_sampling": {
+    "Terrain": {
       "ui:order": [
-        "offset",
-        "ground_elevation"
-      ]
+        "terrain_exaggeration",
+        "terrain_sampling",
+        "terrain_layer"
+      ],
+      "terrain_sampling": {
+        "ui:order": [
+          "offset",
+          "ground_elevation"
+        ]
+      }
     },
     "Map Zoom & Extent": {
       "trips_view_state": {
@@ -1408,31 +1485,44 @@
         ]
       }
     },
-    "create_controls": {
+    "Animation": {
       "ui:order": [
-        "visible",
-        "show_play",
-        "show_restart",
-        "show_scrubber",
-        "show_clock",
-        "show_time",
-        "time_format",
-        "show_speed",
-        "position"
-      ]
+        "trips_animation",
+        "create_controls",
+        "timeline_animation"
+      ],
+      "create_controls": {
+        "ui:order": [
+          "visible",
+          "show_play",
+          "show_restart",
+          "show_scrubber",
+          "show_clock",
+          "show_time",
+          "time_format",
+          "show_speed",
+          "position"
+        ]
+      },
+      "timeline_animation": {
+        "ui:order": [
+          "duration_s",
+          "fps_limit"
+        ]
+      }
     },
-    "timeline_animation": {
+    "Video Export": {
       "ui:order": [
-        "duration_s",
-        "auto_rotate_speed"
-      ]
-    },
-    "create_animation": {
-      "ui:order": [
-        "camera",
-        "duration",
-        "resolution"
-      ]
+        "export_video_toggle",
+        "create_animation"
+      ],
+      "create_animation": {
+        "ui:order": [
+          "camera",
+          "duration",
+          "resolution"
+        ]
+      }
     },
     "ui:order": [
       "workflow_details",
@@ -1440,13 +1530,10 @@
       "time_range",
       "subject_observations",
       "convert_to_trajs",
-      "terrain_exaggeration",
-      "terrain_sampling",
+      "Terrain",
       "Map Zoom & Extent",
-      "trips_animation",
-      "create_controls",
-      "timeline_animation",
-      "create_animation"
+      "Animation",
+      "Video Export"
     ]
   },
   "additionalProperties": false
