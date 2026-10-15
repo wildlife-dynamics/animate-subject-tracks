@@ -81,7 +81,16 @@
         "subject_group_name": {
           "title": "Subject Group Name",
           "type": "string",
-          "description": "\u26a0\ufe0f The use of a group with mixed subtypes could lead to unexpected results"
+          "description": "The EarthRanger subject group to animate, picked from the chosen data source's subject groups. \u26a0\ufe0f The use of a group with mixed subtypes could lead to unexpected results.",
+          "ecoscope:transform": [
+            {
+              "transformer": "EarthRangerEnumResolver",
+              "transformer_kws": {
+                "type": "subject_group_name",
+                "depends_on": "properties.er_client_name.properties.data_source.properties.name"
+              }
+            }
+          ]
         }
       },
       "required": [

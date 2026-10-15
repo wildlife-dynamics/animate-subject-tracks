@@ -29,6 +29,18 @@ rjsf-overrides:
     # Section descriptions for task blocks exposed on the config form
     #er_client_name.description: Choose the EarthRanger site to pull subject tracking data from.
     subject_observations.description: Choose the subject group whose movements will be animated. Each subject in the group is drawn as its own track.
+    # Turn the free-text subject group field into a drop-down of the chosen EarthRanger site's subject group names
+    subject_observations.properties.subject_group_name:
+      title: Subject Group Name
+      type: string
+      description: >-
+        The EarthRanger subject group to animate, picked from the chosen data source's subject groups.
+        ⚠️ The use of a group with mixed subtypes could lead to unexpected results.
+      ecoscope:transform:
+      - transformer: EarthRangerEnumResolver
+        transformer_kws:
+          type: subject_group_name
+          depends_on: properties.er_client_name.properties.data_source.properties.name
     convert_to_trajs.description: Clean the tracks before animating by removing segments that are too long, too short, too slow or too fast to be real movement, such as GPS jumps.
     Terrain.properties.terrain_exaggeration.description: Control how strongly hills and valleys are raised on the 3D terrain. Increase it to make relief easier to see in flat landscapes.
     Terrain.properties.terrain_sampling.description: Control how tracks are draped onto the 3D terrain so they sit on the ground surface rather than floating above it or disappearing below it.

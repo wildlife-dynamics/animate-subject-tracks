@@ -65,7 +65,7 @@ Only the **Workflow Name**, **Data Source**, **Time Range** and **Subject Group 
 
 | Field | Description |
 |-------|-------------|
-| Subject Group Name | The EarthRanger subject group to animate. Must match the group name exactly. A group with mixed subject subtypes can give unexpected results. |
+| Subject Group Name | The EarthRanger subject group to animate, picked from a drop-down of the subject groups on the chosen Data Source. A group with mixed subject subtypes can give unexpected results. |
 
 ### Trajectory Segment Filter *(advanced)*
 
