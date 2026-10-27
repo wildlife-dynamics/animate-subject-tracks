@@ -8,6 +8,7 @@ from ecoscope.platform.tasks.groupby import set_groupers as set_groupers
 from ecoscope.platform.tasks.io import (
     get_subjectgroup_observations as get_subjectgroup_observations,
 )
+from ecoscope.platform.tasks.io import persist_df_wrapper as persist_df_wrapper
 from ecoscope.platform.tasks.io import persist_text as persist_text
 from ecoscope.platform.tasks.io import set_er_connection as set_er_connection
 from ecoscope.platform.tasks.preprocessing import (
@@ -27,9 +28,6 @@ from ecoscope.platform.tasks.skip import any_is_empty_df as any_is_empty_df
 from ecoscope.platform.tasks.skip import never as never
 from ecoscope.platform.tasks.transformation import convert_crs as convert_crs
 from ecoscope.platform.tasks.transformation import map_columns as map_columns
-from ecoscope_workflows_ext_custom.tasks.io import (
-    persist_df_wrapper as persist_df_wrapper,
-)
 from ecoscope_workflows_ext_mep.tasks.animate import animate_layer as animate_layer
 from ecoscope_workflows_ext_mep.tasks.animate import (
     create_elevation_decoder as create_elevation_decoder,
@@ -59,7 +57,7 @@ from ecoscope_workflows_ext_mep.tasks.animate import (
     draw_animated_map as draw_animated_map,
 )
 from ecoscope_workflows_ext_mep.tasks.animate import (
-    render_animation as render_animation,
+    render_video_from_settings as render_video_from_settings,
 )
 from ecoscope_workflows_ext_mep.tasks.animate import (
     set_basemap_option as set_basemap_option,
@@ -253,6 +251,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
+            duplicate_strategy="suffix",
             raise_if_not_found=False,
             df=convert_to_trajs,
             drop_columns=[],
@@ -463,6 +462,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
+            min_break_hours=12,
+            min_piece_fixes=5,
             trajectory_gdf=ensure_wgs,
             groupby_col="groupby_col",
             keep_cols=["subject_name", "hex_color"],
@@ -573,6 +574,11 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             history_color=[255, 255, 255],
             fade_history=True,
             history_opacity=0.85,
+            smooth_turning=True,
+            turn_smoothing=2.5,
+            curve_paths=False,
+            hover_info=False,
+            label_column="",
             **(params.get("trips_animation") or {}),
         )
         .call()
@@ -591,7 +597,9 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(speeds=[0.5, 1, 2, 4], **(params.get("create_controls") or {}))
+        .partial(
+            speeds=[0.25, 0.5, 0.75, 1, 2, 4], **(params.get("create_controls") or {})
+        )
         .call()
     )
 
@@ -608,11 +616,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(
-            auto_rotate_speed=0,
-            controls=create_controls,
-            **(params.get("timeline_animation") or {}),
-        )
+        .partial(controls=create_controls, **(params.get("timeline_animation") or {}))
         .call()
     )
 
@@ -694,6 +698,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
+            fit_view=True,
             geo_layers=animate_trips,
             tile_layers=[terrain_layer],
             static=False,
@@ -748,7 +753,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
     )
 
     create_animation = (
-        task(render_animation)
+        task(render_video_from_settings)
         .validate()
         .set_task_instance_id("create_animation")
         .handle_errors()
@@ -764,8 +769,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             out_path="animation.mp4",
             fps=30,
-            start_frac=0,
-            end_frac=1,
             verbose=True,
             quality={
                 "capture_format": "jpeg",
@@ -780,6 +783,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
                 "settle_ms": 30,
                 "settle_timeout_ms": 8000,
                 "head_ready_timeout_ms": 30000,
+                "map_timeout_ms": 60000,
+                "resume": True,
             },
             **(params.get("create_animation") or {}),
         )

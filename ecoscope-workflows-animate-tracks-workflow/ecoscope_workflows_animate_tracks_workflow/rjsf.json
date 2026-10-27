@@ -91,6 +91,13 @@
               }
             }
           ]
+        },
+        "include_subject_additional": {
+          "default": false,
+          "title": "Include Subject Additional",
+          "type": "boolean",
+          "description": "Whether or not to include the subject's free-form `additional` JSON",
+          "ecoscope:advanced": true
         }
       },
       "required": [
@@ -152,11 +159,23 @@
         "terrain_sampling": {
           "additionalProperties": false,
           "properties": {
+            "altitude_mode": {
+              "default": "relative_to_ground",
+              "enum": [
+                "clamp_to_ground",
+                "relative_to_ground",
+                "absolute"
+              ],
+              "title": "Altitude Mode",
+              "type": "string",
+              "description": "Height of the tracks: on the ground (clamp_to_ground; lines can dip into the terrain between fixes), `offset` metres above it (relative_to_ground), or each fix's recorded altitude above sea level (absolute).",
+              "ecoscope:advanced": true
+            },
             "offset": {
               "default": 30,
               "title": "Offset",
               "type": "number",
-              "description": "Metres added above the sampled ground at every vertex.",
+              "description": "Metres above the ground (relative_to_ground), or above sea level for fixes without an altitude (absolute). Ignored by clamp_to_ground.",
               "ecoscope:advanced": true
             },
             "ground_elevation": {
@@ -265,9 +284,8 @@
               ],
               "default": {
                 "marker": "dot",
-                "get_radius": 6.0,
+                "get_radius": 2.0,
                 "radius_units": "pixels",
-                "get_fill_color": null,
                 "stroked": true,
                 "get_line_color": [
                   255,
@@ -362,6 +380,13 @@
               "type": "string",
               "description": "Where the bar sits on the map.",
               "ecoscope:advanced": true
+            },
+            "show_camera": {
+              "default": true,
+              "title": "Show Camera",
+              "type": "boolean",
+              "description": "Camera button: design and preview the video camera, then copy its settings into render_animation.",
+              "ecoscope:advanced": true
             }
           },
           "type": "object",
@@ -372,16 +397,16 @@
         "timeline_animation": {
           "additionalProperties": false,
           "properties": {
-            "duration_s": {
+            "duration": {
               "default": 30.0,
               "exclusiveMinimum": 0.0,
-              "title": "Duration S",
+              "title": "Duration",
               "type": "number",
-              "description": "Playback length in seconds, from the start of the timeline to its end.",
+              "description": "Playback length in seconds (e.g. 30 = the whole timeline plays in 30 seconds).",
               "ecoscope:advanced": true
             },
             "fps_limit": {
-              "default": 30.0,
+              "default": 60.0,
               "exclusiveMinimum": 0.0,
               "title": "Fps Limit",
               "type": "number",
@@ -419,36 +444,18 @@
         "create_animation": {
           "additionalProperties": false,
           "properties": {
-            "camera": {
+            "camera_settings": {
               "anyOf": [
                 {
-                  "$ref": "#/$defs/StaticCamera"
-                },
-                {
-                  "$ref": "#/$defs/FollowCamera"
-                },
-                {
-                  "$ref": "#/$defs/OrbitCamera"
-                },
-                {
-                  "$ref": "#/$defs/FitCamera"
-                },
-                {
-                  "$ref": "#/$defs/CinematicCamera"
-                },
-                {
-                  "$ref": "#/$defs/KeyframesCamera"
-                },
-                {
-                  "$ref": "#/$defs/FlyAroundCamera"
+                  "$ref": "#/$defs/CameraFromSettings"
                 }
               ],
               "default": {
-                "type_": "static",
-                "zoom_offset": 0.0
+                "type_": "settings",
+                "settings": "{\"type_\": \"fixed\"}"
               },
               "title": "Camera",
-              "description": "Camera for the clip. Every option frames whatever is animating (trips, points, polygons, ...) at the video's size, with the map's pitch and bearing: Static (whole scene), Follow the action, Orbit, Fit everything so far, Cinematic fly-through, Keyframes (waypoints, or follow one subject), or Fly to & around.",
+              "description": "Camera designed in the interactive map's Camera panel: paste the copied settings, or give the path of the downloaded settings file. The default is a fixed view of the whole scene.",
               "ecoscope:advanced": true
             },
             "duration": {
@@ -465,20 +472,23 @@
               "description": "Video duration. 'auto' uses the animation's own playback length (duration_s).",
               "ecoscope:advanced": true
             },
-            "resolution": {
-              "anyOf": [
+            "overlays": {
+              "allOf": [
                 {
-                  "$ref": "#/$defs/PresetResolution"
-                },
-                {
-                  "$ref": "#/$defs/CustomResolution"
+                  "$ref": "#/$defs/VideoOverlays"
                 }
               ],
               "default": {
-                "preset": "720p"
+                "clock": true,
+                "clock_position": "top-right",
+                "legend": true,
+                "north_arrow": true,
+                "scale_bar": true,
+                "title": true,
+                "labels": true
               },
-              "title": "Resolution",
-              "description": "Output video resolution: a preset (720p/1080p/4K) or 'custom' width/height.",
+              "title": "Overlays",
+              "description": "What the video shows over the map: the date and time, legend, north arrow, scale bar, title and marker labels.",
               "ecoscope:advanced": true
             }
           },
@@ -632,7 +642,7 @@
       "type": "object"
     },
     "DotMarker": {
-      "description": "Flat circle at each subject's current position (deck.gl ScatterplotLayer).\n\nField names mirror PointLayerStyle. Colours are constants rather than column accessors\nbecause the marker's data is rebuilt in the browser every frame.",
+      "description": "Flat circle at each subject's current position (deck.gl ScatterplotLayer), filled\nwith that subject's track colour.\n\nField names mirror PointLayerStyle. Colours are constants rather than column accessors\nbecause the marker's data is rebuilt in the browser every frame.",
       "properties": {
         "marker": {
           "const": "dot",
@@ -644,7 +654,7 @@
           "type": "string"
         },
         "get_radius": {
-          "default": 6.0,
+          "default": 2.0,
           "ecoscope:advanced": true,
           "exclusiveMinimum": 0.0,
           "title": "Get Radius",
@@ -659,29 +669,6 @@
           ],
           "title": "Radius Units",
           "type": "string"
-        },
-        "get_fill_color": {
-          "default": null,
-          "description": "RGB fill. None -> each subject's own track colour.",
-          "ecoscope:advanced": true,
-          "items": {
-            "type": "integer"
-          },
-          "maxItems": 3,
-          "minItems": 3,
-          "prefixItems": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "integer"
-            },
-            {
-              "type": "integer"
-            }
-          ],
-          "title": "Get Fill Color",
-          "type": "array"
         },
         "stroked": {
           "default": true,
@@ -888,13 +875,67 @@
           "ecoscope:advanced": true,
           "title": "Use subject color",
           "type": "boolean"
+        },
+        "walk_animation": {
+          "default": null,
+          "description": "Name or index of the model's animation to play while the subject moves (with the trips animation's speed response on). None -> no animation.",
+          "ecoscope:advanced": true,
+          "title": "Walk animation",
+          "type": "string"
+        },
+        "run_animation": {
+          "default": null,
+          "description": "Animation played while the subject moves fast (over 2.5x its typical speed). None -> the walk animation.",
+          "ecoscope:advanced": true,
+          "title": "Run animation",
+          "type": "string"
+        },
+        "idle_animation": {
+          "default": null,
+          "description": "Animation played while the subject rests. None -> the model holds still.",
+          "ecoscope:advanced": true,
+          "title": "Idle animation",
+          "type": "string"
+        },
+        "animation_speed": {
+          "default": 1.0,
+          "description": "Playback speed of the model's animations (1 = as authored).",
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.0,
+          "maximum": 10.0,
+          "title": "Animation Speed",
+          "type": "number"
         }
       },
       "title": "3D model (custom)",
       "type": "object"
     },
+    "CameraFromSettings": {
+      "description": "The camera designed in the animated map's Camera panel.",
+      "properties": {
+        "type_": {
+          "const": "settings",
+          "default": "settings",
+          "enum": [
+            "settings"
+          ],
+          "title": "Camera",
+          "type": "string"
+        },
+        "settings": {
+          "description": "Paste the settings copied from the Camera panel, or give the path of the downloaded settings file (.json).",
+          "title": "Camera settings",
+          "type": "string"
+        }
+      },
+      "required": [
+        "settings"
+      ],
+      "title": "From Camera panel settings",
+      "type": "object"
+    },
     "CameraKeyframe": {
-      "description": "One waypoint on a user-defined camera path.\n\nOnly ``lon``/``lat`` are required. ``t`` places the keyframe on the clip\ntimeline (0 = first captured frame, 1 = last); when omitted on every\nkeyframe they are spaced evenly. ``zoom``/``pitch``/``bearing`` left as\nNone are interpolated between the nearest keyframes that define them, or\nfall back to the whole-scene framing (zoom) and the map's pitch/bearing.",
+      "description": "One waypoint on a keyframes camera path.\n\nOnly ``lon``/``lat`` are required. ``t`` places the keyframe on the clip timeline (0 = first\ncaptured frame, 1 = last); when omitted on every keyframe they are spaced evenly.\n``zoom``/``pitch``/``bearing`` left as None are interpolated between the nearest keyframes that\ndefine them, or fall back to the whole-scene framing (zoom) and the map's pitch/bearing.",
       "properties": {
         "lon": {
           "description": "Longitude of the camera look-at point.",
@@ -916,7 +957,7 @@
             }
           ],
           "default": null,
-          "description": "Position on the clip timeline (0 = start, 1 = end). Any monotonically increasing numbers work (they are normalized to 0\u20131); leave blank on every keyframe to space them evenly.",
+          "description": "Position on the clip timeline (0 = start, 1 = end). Any increasing numbers work (they are normalized to 0\u20131); leave blank on every keyframe to space them evenly.",
           "title": "T"
         },
         "zoom": {
@@ -942,7 +983,7 @@
             }
           ],
           "default": null,
-          "description": "Camera tilt in degrees at this keyframe. Leave blank to blend from neighbouring keyframes, or use the map's pitch if none set it.",
+          "description": "Camera tilt in degrees at this keyframe. Leave blank to blend from neighbouring keyframes, or use the map's tilt if none set it.",
           "title": "Pitch"
         },
         "bearing": {
@@ -955,7 +996,7 @@
             }
           ],
           "default": null,
-          "description": "Camera heading in degrees at this keyframe. Leave blank to blend from neighbouring keyframes, or use the map's bearing if none set it.",
+          "description": "Camera heading in degrees at this keyframe. Leave blank to blend from neighbouring keyframes, or use the map's heading if none set it.",
           "title": "Bearing"
         }
       },
@@ -964,122 +1005,6 @@
         "lat"
       ],
       "title": "CameraKeyframe",
-      "type": "object"
-    },
-    "CinematicCamera": {
-      "description": "Fly-through: opens on the whole scene, then follows the action with a slowly\nturning, tilted camera (after the Mapbox 'cinematic route' technique).",
-      "properties": {
-        "type_": {
-          "const": "cinematic",
-          "default": "cinematic",
-          "enum": [
-            "cinematic"
-          ],
-          "title": "Camera",
-          "type": "string"
-        },
-        "zoom_offset": {
-          "default": 0.0,
-          "description": "Zoom levels added to the automatic framing (+1 = twice as close).",
-          "ecoscope:advanced": true,
-          "title": "Zoom Offset",
-          "type": "number"
-        },
-        "follow_window": {
-          "default": 0.1,
-          "description": "Share of the timeline treated as 'recent' when framing.",
-          "ecoscope:advanced": true,
-          "exclusiveMinimum": 0.0,
-          "maximum": 1.0,
-          "title": "Follow Window",
-          "type": "number"
-        },
-        "follow_smoothing": {
-          "default": 0.25,
-          "description": "Share of the gap to the action closed every 1/30 s: low = smooth but laggy, 1 = snaps to it. Independent of fps.",
-          "ecoscope:advanced": true,
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Follow Smoothing",
-          "type": "number"
-        },
-        "lead_frac": {
-          "default": 0.0,
-          "description": "Look ahead by this share of the timeline, so the camera leads.",
-          "ecoscope:advanced": true,
-          "maximum": 0.5,
-          "minimum": 0.0,
-          "title": "Lead Frac",
-          "type": "number"
-        },
-        "bearing_mode": {
-          "default": "rotate",
-          "description": "'rotate' turns at a constant rate, 'heading' faces the direction of travel, 'fixed' keeps the map's bearing.",
-          "ecoscope:advanced": true,
-          "enum": [
-            "rotate",
-            "heading",
-            "fixed"
-          ],
-          "title": "Bearing Mode",
-          "type": "string"
-        },
-        "rotate_deg": {
-          "default": 45.0,
-          "description": "Total turn over the clip for bearing_mode='rotate'.",
-          "ecoscope:advanced": true,
-          "title": "Rotate Deg",
-          "type": "number"
-        },
-        "intro_frac": {
-          "default": 0.12,
-          "description": "Share of the clip spent flying in from the whole-scene view.",
-          "ecoscope:advanced": true,
-          "maximum": 0.5,
-          "minimum": 0.0,
-          "title": "Intro Frac",
-          "type": "number"
-        },
-        "fit_padding": {
-          "default": 80,
-          "description": "Padding in pixels around the action.",
-          "ecoscope:advanced": true,
-          "minimum": 0,
-          "title": "Fit Padding",
-          "type": "integer"
-        }
-      },
-      "title": "Cinematic fly-through",
-      "type": "object"
-    },
-    "CustomResolution": {
-      "description": "Output video resolution at an exact width/height.",
-      "properties": {
-        "preset": {
-          "const": "custom",
-          "default": "custom",
-          "enum": [
-            "custom"
-          ],
-          "title": "Resolution",
-          "type": "string"
-        },
-        "width": {
-          "default": 1280,
-          "description": "Custom video width in pixels.",
-          "exclusiveMinimum": 0,
-          "title": "Width",
-          "type": "integer"
-        },
-        "height": {
-          "default": 720,
-          "description": "Custom video height in pixels.",
-          "exclusiveMinimum": 0,
-          "title": "Height",
-          "type": "integer"
-        }
-      },
-      "title": "Custom",
       "type": "object"
     },
     "DurationConfig": {
@@ -1101,39 +1026,72 @@
       "title": "DurationConfig",
       "type": "object"
     },
-    "FitCamera": {
-      "description": "Zooms to keep everything shown so far in frame.",
+    "FixedCamera": {
+      "description": "One view for the whole clip: by default the whole scene, at the map's tilt and heading.",
       "properties": {
         "type_": {
-          "const": "fit",
-          "default": "fit",
+          "const": "fixed",
+          "default": "fixed",
           "enum": [
-            "fit"
+            "fixed"
           ],
           "title": "Camera",
           "type": "string"
         },
-        "zoom_offset": {
-          "default": 0.0,
-          "description": "Zoom levels added to the automatic framing (+1 = twice as close).",
-          "ecoscope:advanced": true,
-          "title": "Zoom Offset",
+        "lon": {
+          "default": null,
+          "description": "Center longitude. Leave blank for the center of the data.",
+          "ge": -180,
+          "le": 180,
+          "title": "Lon",
           "type": "number"
         },
-        "fit_padding": {
-          "default": 80,
-          "description": "Padding in pixels around the data.",
+        "lat": {
+          "default": null,
+          "description": "Center latitude. Leave blank for the center of the data.",
+          "ge": -90,
+          "le": 90,
+          "title": "Lat",
+          "type": "number"
+        },
+        "range_m": {
+          "default": null,
+          "description": "Camera distance from the center in metres. Leave blank to fit the data in the frame.",
+          "gt": 0,
+          "title": "Range (m)",
+          "type": "number"
+        },
+        "tilt": {
+          "default": null,
+          "description": "Tilt in degrees (0 = straight down). Leave blank for the map's.",
+          "ge": 0,
+          "le": 80,
+          "title": "Tilt",
+          "type": "number"
+        },
+        "heading": {
+          "default": null,
+          "description": "Compass heading in degrees. Leave blank for the map's.",
+          "ge": -360,
+          "le": 360,
+          "title": "Heading",
+          "type": "number"
+        },
+        "fov": {
+          "default": null,
+          "description": "Vertical lens angle: wider is a wide-angle look, narrower a telephoto one. Leave blank for the map's (about 37\u00b0).",
           "ecoscope:advanced": true,
-          "minimum": 0,
-          "title": "Fit Padding",
-          "type": "integer"
+          "ge": 5,
+          "le": 80,
+          "title": "Field of view (\u00b0)",
+          "type": "number"
         }
       },
-      "title": "Fit everything so far",
+      "title": "Fixed view",
       "type": "object"
     },
     "FlyAroundCamera": {
-      "description": "Fly to a point, then circle it -- the Google Maps 3D flyCameraTo + flyCameraAround pair.\n\nThe camera is described the Google way (center, altitude, range, tilt, heading) and\nconverted to deck's view state. The fly-to uses deck's FlyToInterpolator, the same\nzoom-out-and-back-in arc; the orbit then turns at a constant rate for `rounds` turns.\nUnset values come from the data (center, framing) and the map (tilt, heading).",
+      "description": "Fly to a point, then circle it -- the Google Maps 3D flyCameraTo + flyCameraAround pair.\n\nThe fly-to follows deck's FlyToInterpolator arc (out, across and back in) from the whole-scene\nview; the orbit then turns at a constant rate for `rounds` turns.",
       "properties": {
         "type_": {
           "const": "fly_around",
@@ -1144,16 +1102,9 @@
           "title": "Camera",
           "type": "string"
         },
-        "zoom_offset": {
-          "default": 0.0,
-          "description": "Zoom levels added to the automatic framing (+1 = twice as close).",
-          "ecoscope:advanced": true,
-          "title": "Zoom Offset",
-          "type": "number"
-        },
         "lon": {
           "default": null,
-          "description": "Center longitude. Leave blank to use the center of the data.",
+          "description": "Center longitude. Leave blank for the center of the data.",
           "ge": -180,
           "le": 180,
           "title": "Lon",
@@ -1161,31 +1112,22 @@
         },
         "lat": {
           "default": null,
-          "description": "Center latitude. Leave blank to use the center of the data.",
+          "description": "Center latitude. Leave blank for the center of the data.",
           "ge": -90,
           "le": 90,
           "title": "Lat",
           "type": "number"
         },
-        "altitude": {
-          "default": null,
-          "description": "Height of the center point in metres. Leave blank to use the data's mean height, so the camera circles draped tracks rather than a point under the terrain.",
-          "ecoscope:advanced": true,
-          "title": "Altitude",
-          "type": "number"
-        },
         "range_m": {
           "default": null,
-          "description": "Camera distance from the center in metres. Leave blank to fit the data.",
-          "ecoscope:advanced": true,
+          "description": "Camera distance from the center in metres. Leave blank to fit the data in the frame.",
           "gt": 0,
-          "title": "Range M",
+          "title": "Range (m)",
           "type": "number"
         },
         "tilt": {
           "default": null,
-          "description": "Tilt on arrival (0 = straight down). Leave blank to use the map's pitch.",
-          "ecoscope:advanced": true,
+          "description": "Tilt in degrees (0 = straight down). Leave blank for the map's.",
           "ge": 0,
           "le": 80,
           "title": "Tilt",
@@ -1193,14 +1135,24 @@
         },
         "heading": {
           "default": null,
-          "description": "Compass heading on arrival. Leave blank to use the map's bearing.",
-          "ecoscope:advanced": true,
+          "description": "Compass heading on arrival. Leave blank for the map's.",
+          "ge": -360,
+          "le": 360,
           "title": "Heading",
+          "type": "number"
+        },
+        "fov": {
+          "default": null,
+          "description": "Vertical lens angle: wider is a wide-angle look, narrower a telephoto one. Leave blank for the map's (about 37\u00b0).",
+          "ecoscope:advanced": true,
+          "ge": 5,
+          "le": 80,
+          "title": "Field of view (\u00b0)",
           "type": "number"
         },
         "fly_frac": {
           "default": 0.25,
-          "description": "Share of the clip spent flying in from the whole-scene view. 0 -> start at the target.",
+          "description": "Share of the clip spent flying in from the whole-scene view. 0 = start at the center.",
           "maximum": 1.0,
           "minimum": 0.0,
           "title": "Fly Frac",
@@ -1208,7 +1160,7 @@
         },
         "rounds": {
           "default": 1.0,
-          "description": "Full turns around the center after arriving. 0 -> hold.",
+          "description": "Full turns around the center after arriving. 0 = hold.",
           "minimum": 0.0,
           "title": "Rounds",
           "type": "number"
@@ -1217,8 +1169,8 @@
       "title": "Fly to & around",
       "type": "object"
     },
-    "FollowCamera": {
-      "description": "Follows the action: frames whatever animated in the last `follow_window` of the\ntimeline, re-fitting smoothly as it moves.",
+    "FollowActionCamera": {
+      "description": "Keeps the moving subjects in frame: frames what animated in the last `follow_window` of the\ntimeline, re-fitting smoothly as they move and spread.",
       "properties": {
         "type_": {
           "const": "follow",
@@ -1229,11 +1181,46 @@
           "title": "Camera",
           "type": "string"
         },
-        "zoom_offset": {
-          "default": 0.0,
-          "description": "Zoom levels added to the automatic framing (+1 = twice as close).",
+        "subjects": {
+          "default": null,
+          "description": "Only frame these subjects (their value in any column, e.g. names), zooming out as they spread apart. Leave blank for everything that animates.",
           "ecoscope:advanced": true,
-          "title": "Zoom Offset",
+          "items": {
+            "type": "string"
+          },
+          "title": "Subjects",
+          "type": "array"
+        },
+        "tilt": {
+          "default": null,
+          "description": "Tilt in degrees (0 = straight down). Leave blank for the map's.",
+          "ge": 0,
+          "le": 80,
+          "title": "Tilt",
+          "type": "number"
+        },
+        "heading": {
+          "default": null,
+          "description": "Compass heading in degrees. Leave blank for the map's.",
+          "ge": -360,
+          "le": 360,
+          "title": "Heading",
+          "type": "number"
+        },
+        "face_travel": {
+          "default": false,
+          "description": "Turn the camera to face the direction of travel.",
+          "ecoscope:advanced": true,
+          "title": "Face Travel",
+          "type": "boolean"
+        },
+        "fov": {
+          "default": null,
+          "description": "Vertical lens angle: wider is a wide-angle look, narrower a telephoto one. Leave blank for the map's (about 37\u00b0).",
+          "ecoscope:advanced": true,
+          "ge": 5,
+          "le": 80,
+          "title": "Field of view (\u00b0)",
           "type": "number"
         },
         "follow_window": {
@@ -1254,13 +1241,6 @@
           "title": "Follow Smoothing",
           "type": "number"
         },
-        "heading_lock": {
-          "default": false,
-          "description": "Rotate the camera to face the direction of travel.",
-          "ecoscope:advanced": true,
-          "title": "Heading Lock",
-          "type": "boolean"
-        },
         "fit_padding": {
           "default": 80,
           "description": "Padding in pixels around the action.",
@@ -1273,8 +1253,80 @@
       "title": "Follow the action",
       "type": "object"
     },
+    "FollowSubjectCamera": {
+      "description": "Stays on one subject at a set range and tilt, behind it and facing where it is heading, lagging a\nlittle behind its moves.",
+      "properties": {
+        "type_": {
+          "const": "chase",
+          "default": "chase",
+          "enum": [
+            "chase"
+          ],
+          "title": "Camera",
+          "type": "string"
+        },
+        "subject": {
+          "default": null,
+          "description": "Value identifying the subject in any column (e.g. its name or group id). Leave blank for the longest-running track.",
+          "title": "Subject",
+          "type": "string"
+        },
+        "range_m": {
+          "default": 800.0,
+          "description": "Camera distance from the subject in metres.",
+          "exclusiveMinimum": 0.0,
+          "title": "Range (m)",
+          "type": "number"
+        },
+        "tilt": {
+          "default": 60.0,
+          "description": "Tilt in degrees (0 = straight down).",
+          "maximum": 80.0,
+          "minimum": 0.0,
+          "title": "Tilt",
+          "type": "number"
+        },
+        "heading": {
+          "default": null,
+          "description": "Compass heading in degrees. Leave blank to face the subject's direction of travel.",
+          "ge": -360,
+          "le": 360,
+          "title": "Heading",
+          "type": "number"
+        },
+        "fov": {
+          "default": null,
+          "description": "Vertical lens angle: wider is a wide-angle look, narrower a telephoto one. Leave blank for the map's (about 37\u00b0).",
+          "ecoscope:advanced": true,
+          "ge": 5,
+          "le": 80,
+          "title": "Field of view (\u00b0)",
+          "type": "number"
+        },
+        "follow_smoothing": {
+          "default": 0.3,
+          "description": "Share of the gap to the subject closed every 1/30 s: low = drifts behind, 1 = locked on.",
+          "ecoscope:advanced": true,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Follow Smoothing",
+          "type": "number"
+        },
+        "turn_smoothing": {
+          "default": 0.15,
+          "description": "Share of the turn towards the direction of travel made every 1/30 s: low = slow, sweeping turns, 1 = snaps.",
+          "ecoscope:advanced": true,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Turn Smoothing",
+          "type": "number"
+        }
+      },
+      "title": "Follow a subject",
+      "type": "object"
+    },
     "KeyframesCamera": {
-      "description": "Flies through waypoints while the data animates.\n\nPick a `source`: upload a waypoint file, or follow a subject. Waypoints supplied\ndirectly in ``keyframes`` (e.g. from derive_camera_keyframes) take priority.\nWaypoints without a zoom use the whole-scene framing (plus zoom_offset).",
+      "description": "Flies through waypoints while the data animates: add views in the Camera panel, upload a\nwaypoint file, or follow a subject.\n\nWaypoints given in ``keyframes`` take priority over ``source``. Waypoints without a zoom use\nthe whole-scene framing.",
       "properties": {
         "type_": {
           "const": "keyframes",
@@ -1284,13 +1336,6 @@
           ],
           "title": "Camera",
           "type": "string"
-        },
-        "zoom_offset": {
-          "default": 0.0,
-          "description": "Zoom levels added to the automatic framing (+1 = twice as close).",
-          "ecoscope:advanced": true,
-          "title": "Zoom Offset",
-          "type": "number"
         },
         "keyframes": {
           "default": null,
@@ -1336,6 +1381,15 @@
           ],
           "title": "Keyframe Easing",
           "type": "string"
+        },
+        "fov": {
+          "default": null,
+          "description": "Vertical lens angle: wider is a wide-angle look, narrower a telephoto one. Leave blank for the map's (about 37\u00b0).",
+          "ecoscope:advanced": true,
+          "ge": 5,
+          "le": 80,
+          "title": "Field of view (\u00b0)",
+          "type": "number"
         }
       },
       "title": "Keyframes",
@@ -1385,76 +1439,59 @@
       "title": "Follow a subject",
       "type": "object"
     },
-    "OrbitCamera": {
-      "description": "Circles the center of all the animated data.",
+    "VideoOverlays": {
+      "description": "What the video shows over the map. The playback bar and camera panel are never shown.",
       "properties": {
-        "type_": {
-          "const": "orbit",
-          "default": "orbit",
+        "clock": {
+          "default": true,
+          "description": "The data date and time in a corner, formatted as on the map's playback bar.",
+          "title": "Clock",
+          "type": "boolean"
+        },
+        "clock_position": {
+          "default": "top-right",
+          "description": "Corner for the date and time.",
           "enum": [
-            "orbit"
+            "top-left",
+            "top-right",
+            "bottom-left",
+            "bottom-right"
           ],
-          "title": "Camera",
+          "title": "Clock Position",
           "type": "string"
         },
-        "zoom_offset": {
-          "default": 0.0,
-          "description": "Zoom levels added to the automatic framing (+1 = twice as close).",
-          "ecoscope:advanced": true,
-          "title": "Zoom Offset",
-          "type": "number"
+        "legend": {
+          "default": true,
+          "description": "The legend.",
+          "title": "Legend",
+          "type": "boolean"
         },
-        "rounds": {
-          "default": 1.0,
-          "description": "Full turns over the clip.",
-          "ecoscope:advanced": true,
-          "exclusiveMinimum": 0.0,
-          "title": "Rounds",
-          "type": "number"
-        }
-      },
-      "title": "Orbit",
-      "type": "object"
-    },
-    "PresetResolution": {
-      "description": "Output video resolution from a common preset.",
-      "properties": {
-        "preset": {
-          "default": "720p",
-          "description": "Common output video resolution preset.",
-          "enum": [
-            "720p",
-            "1080p",
-            "4k"
-          ],
-          "title": "Resolution",
-          "type": "string"
-        }
-      },
-      "title": "Preset",
-      "type": "object"
-    },
-    "StaticCamera": {
-      "description": "Holds one view that fits all the animated data for the whole clip.",
-      "properties": {
-        "type_": {
-          "const": "static",
-          "default": "static",
-          "enum": [
-            "static"
-          ],
-          "title": "Camera",
-          "type": "string"
+        "north_arrow": {
+          "default": true,
+          "description": "The north arrow.",
+          "title": "North Arrow",
+          "type": "boolean"
         },
-        "zoom_offset": {
-          "default": 0.0,
-          "description": "Zoom levels added to the automatic framing (+1 = twice as close).",
-          "ecoscope:advanced": true,
-          "title": "Zoom Offset",
-          "type": "number"
+        "scale_bar": {
+          "default": true,
+          "description": "The scale bar.",
+          "title": "Scale Bar",
+          "type": "boolean"
+        },
+        "title": {
+          "default": true,
+          "description": "The map title, if it has one.",
+          "title": "Title",
+          "type": "boolean"
+        },
+        "labels": {
+          "default": true,
+          "description": "Labels above the markers (e.g. subject names).",
+          "title": "Labels",
+          "type": "boolean"
         }
       },
-      "title": "Static",
+      "title": "VideoOverlays",
       "type": "object"
     }
   },
@@ -1473,6 +1510,12 @@
         "time_format"
       ]
     },
+    "subject_observations": {
+      "ui:order": [
+        "subject_group_name",
+        "include_subject_additional"
+      ]
+    },
     "Terrain": {
       "ui:order": [
         "terrain_exaggeration",
@@ -1481,6 +1524,7 @@
       ],
       "terrain_sampling": {
         "ui:order": [
+          "altitude_mode",
           "offset",
           "ground_elevation"
         ]
@@ -1510,12 +1554,13 @@
           "show_time",
           "time_format",
           "show_speed",
-          "position"
+          "position",
+          "show_camera"
         ]
       },
       "timeline_animation": {
         "ui:order": [
-          "duration_s",
+          "duration",
           "fps_limit"
         ]
       }
@@ -1527,9 +1572,9 @@
       ],
       "create_animation": {
         "ui:order": [
-          "camera",
+          "camera_settings",
           "duration",
-          "resolution"
+          "overlays"
         ]
       }
     },

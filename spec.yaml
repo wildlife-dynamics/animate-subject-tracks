@@ -1,19 +1,19 @@
 id: animate_tracks
 requirements:
   - name: ecoscope-platform
-    version: ">=2.15.0, <2.16.0"
+    version: ==2.25.3
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-custom
-    version: "0.1.0rc14.*"
+    version: "0.1.4.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-ste
-    version: "0.0.0rc1.*"
+    version: "0.0.24.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-mep
-    version: "1.0.4.*"
+    version: "1.10.6.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: pydeck
@@ -62,6 +62,16 @@ rjsf-overrides:
       - const: "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}"
         title: USGS Hillshade
     Video Export.properties.create_animation.description: Choose how the camera moves, how long the video runs and its resolution.
+    # The video camera comes only from the Camera panel's settings (pasted or the downloaded file) for now;
+    # the default is a fixed view of the whole scene.
+    Video Export.properties.create_animation.properties.camera_settings.anyOf:
+      - $ref: "#/$defs/CameraFromSettings"
+    Video Export.properties.create_animation.properties.camera_settings.default:
+      type_: settings
+      settings: '{"type_": "fixed"}'
+    Video Export.properties.create_animation.properties.camera_settings.description: >-
+      Camera designed in the interactive map's Camera panel: paste the copied settings, or give the path of the
+      downloaded settings file. The default is a fixed view of the whole scene.
     Video Export.properties.export_video_toggle.properties.enabled.title: Export video
     Video Export.properties.export_video_toggle.properties.enabled.description: Off by default. Turn on to also render the animation as an MP4 video. Exporting a video makes the workflow take longer to run.
     Video Export.properties.export_video_toggle.properties.enabled.default: false
@@ -147,6 +157,7 @@ workflow:
     id: rename_traj_cols
     task: map_columns 
     partial:
+      duplicate_strategy: suffix
       raise_if_not_found: false
       df: ${{ workflow.convert_to_trajs.return }}
       drop_columns: []
@@ -237,6 +248,8 @@ workflow:
     id: trajs_trips
     task: trajectory_to_trips
     partial:
+      min_break_hours: 12
+      min_piece_fixes: 5
       trajectory_gdf: ${{ workflow.ensure_wgs.return }}
       groupby_col: groupby_col
       keep_cols: [
@@ -290,18 +303,22 @@ workflow:
           history_color: [255,255,255]
           fade_history: true
           history_opacity: 0.85
+          smooth_turning: true 
+          turn_smoothing: 2.50 
+          curve_paths: false 
+          hover_info: false
+          label_column: ""
 
       - name: Playback Control
         id: create_controls
         task: create_playback_controls
         partial:
-          speeds: [0.5,1,2,4]
+          speeds: [0.25,0.5,0.75,1,2,4]
 
       - name: Playback Length & Smoothness
         id: timeline_animation
         task: create_timeline_animation
         partial:
-          auto_rotate_speed: 0
           controls: ${{ workflow.create_controls.return }}
 
   - name: Create trips layer
@@ -342,6 +359,7 @@ workflow:
     id: draw_animation
     task: draw_animated_map
     partial:
+      fit_view: true
       geo_layers: ${{ workflow.animate_trips.return }}
       tile_layers:
         - ${{ workflow.terrain_layer.return }}
@@ -375,7 +393,7 @@ workflow:
 
       - name: Video Settings
         id: create_animation
-        task: render_animation
+        task: render_video_from_settings
         skipif:
           conditions:
             - any_dependency_skipped
@@ -384,8 +402,8 @@ workflow:
           output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
           out_path: "animation.mp4"
           fps: 30
-          start_frac: 0
-          end_frac: 1
+          # start_frac: 0
+          # end_frac: 1
           verbose: true
           quality:
             capture_format: "jpeg"
@@ -399,6 +417,8 @@ workflow:
             settle_ms: 30
             settle_timeout_ms: 8000
             head_ready_timeout_ms: 30000
+            map_timeout_ms: 60000
+            resume: true
 
     # Map widgets
   - name: Create animated map widget
