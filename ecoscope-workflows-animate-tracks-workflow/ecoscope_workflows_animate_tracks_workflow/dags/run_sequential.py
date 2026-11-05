@@ -176,6 +176,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             raise_on_empty=False,
             include_details=True,
             include_subjectsource_details=True,
+            include_subject_additional=False,
             **(params.get("subject_observations") or {}),
         )
         .call()
@@ -379,6 +380,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             wireframe=False,
             elevation_data="https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
             elevation_decoder=terrain_exaggeration,
+            imagery_max_zoom=18,
             **(params.get("terrain_layer") or {}),
         )
         .call()
@@ -598,7 +600,18 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            speeds=[0.25, 0.5, 0.75, 1, 2, 4], **(params.get("create_controls") or {})
+            visible=True,
+            show_play=True,
+            show_restart=True,
+            show_scrubber=True,
+            show_time=True,
+            time_format="datetime",
+            show_speed=True,
+            show_clock=True,
+            show_hint=False,
+            preview_camera=True,
+            speeds=[0.25, 0.5, 0.75, 1, 2, 4],
+            **(params.get("create_controls") or {}),
         )
         .call()
     )

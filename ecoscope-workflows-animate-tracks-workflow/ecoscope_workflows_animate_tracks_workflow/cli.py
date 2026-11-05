@@ -9,6 +9,7 @@ from io import TextIOWrapper
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 import click
 
@@ -137,7 +138,7 @@ def run(
                 "ECOSCOPE_WORKFLOWS_RESULTS must be a file URL (file://...)."
             )
         otel_exporter_kws |= make_otel_console_exporter_file_dst_kws(
-            target_dir=Path(parsed_results_url.path),
+            target_dir=Path(url2pathname(parsed_results_url.path)),
         )
     configure_tracer(
         RELEASE_NAME,

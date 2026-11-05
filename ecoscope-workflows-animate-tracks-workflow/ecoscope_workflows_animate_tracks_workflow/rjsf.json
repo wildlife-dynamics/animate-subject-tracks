@@ -91,13 +91,6 @@
               }
             }
           ]
-        },
-        "include_subject_additional": {
-          "default": false,
-          "title": "Include Subject Additional",
-          "type": "boolean",
-          "description": "Whether or not to include the subject's free-form `additional` JSON",
-          "ecoscope:advanced": true
         }
       },
       "required": [
@@ -217,6 +210,12 @@
                   "title": "USGS Hillshade"
                 }
               ]
+            },
+            "labels": {
+              "default": false,
+              "title": "Place names",
+              "type": "boolean",
+              "description": "Show place names and boundaries over the basemap, draped on the terrain (Esri World Boundaries and Places)."
             }
           },
           "type": "object",
@@ -309,67 +308,6 @@
         "create_controls": {
           "additionalProperties": false,
           "properties": {
-            "visible": {
-              "default": true,
-              "title": "Visible",
-              "type": "boolean",
-              "description": "Show the playback bar at all.",
-              "ecoscope:advanced": true
-            },
-            "show_play": {
-              "default": true,
-              "title": "Show Play",
-              "type": "boolean",
-              "description": "Play/pause button.",
-              "ecoscope:advanced": true
-            },
-            "show_restart": {
-              "default": true,
-              "title": "Show Restart",
-              "type": "boolean",
-              "description": "Restart button.",
-              "ecoscope:advanced": true
-            },
-            "show_scrubber": {
-              "default": true,
-              "title": "Show Scrubber",
-              "type": "boolean",
-              "description": "Slider for jumping to any moment.",
-              "ecoscope:advanced": true
-            },
-            "show_clock": {
-              "default": true,
-              "title": "Show Clock",
-              "type": "boolean",
-              "description": "Playback position / total length, e.g. 0:12 / 0:30.",
-              "ecoscope:advanced": true
-            },
-            "show_time": {
-              "default": true,
-              "title": "Show Time",
-              "type": "boolean",
-              "description": "Current time in the data.",
-              "ecoscope:advanced": true
-            },
-            "time_format": {
-              "default": "date",
-              "enum": [
-                "datetime",
-                "date",
-                "elapsed"
-              ],
-              "title": "Time Format",
-              "type": "string",
-              "description": "Data time as 'datetime' (2024-01-01 06:00 UTC), 'date', or 'elapsed' since the start.",
-              "ecoscope:advanced": true
-            },
-            "show_speed": {
-              "default": true,
-              "title": "Show Speed",
-              "type": "boolean",
-              "description": "Button cycling through `speeds`.",
-              "ecoscope:advanced": true
-            },
             "position": {
               "default": "bottom",
               "enum": [
@@ -386,6 +324,13 @@
               "title": "Show Camera",
               "type": "boolean",
               "description": "Camera button: design and preview the video camera, then copy its settings into render_animation.",
+              "ecoscope:advanced": true
+            },
+            "show_map_controls": {
+              "default": true,
+              "title": "Show map buttons",
+              "type": "boolean",
+              "description": "deck.gl's map buttons: zoom in and out, tilt and rotation (click to reset), back to the opening view, fullscreen, and a spinner while the map loads.",
               "ecoscope:advanced": true
             }
           },
@@ -1510,12 +1455,6 @@
         "time_format"
       ]
     },
-    "subject_observations": {
-      "ui:order": [
-        "subject_group_name",
-        "include_subject_additional"
-      ]
-    },
     "Terrain": {
       "ui:order": [
         "terrain_exaggeration",
@@ -1527,6 +1466,12 @@
           "altitude_mode",
           "offset",
           "ground_elevation"
+        ]
+      },
+      "terrain_layer": {
+        "ui:order": [
+          "texture",
+          "labels"
         ]
       }
     },
@@ -1546,16 +1491,9 @@
       ],
       "create_controls": {
         "ui:order": [
-          "visible",
-          "show_play",
-          "show_restart",
-          "show_scrubber",
-          "show_clock",
-          "show_time",
-          "time_format",
-          "show_speed",
           "position",
-          "show_camera"
+          "show_camera",
+          "show_map_controls"
         ]
       },
       "timeline_animation": {
