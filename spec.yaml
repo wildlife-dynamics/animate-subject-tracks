@@ -5,15 +5,15 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-custom
-    version: "0.1.4.*"
+    version: "0.1.5.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-ste
-    version: "0.0.24.*"
+    version: "0.0.32.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-mep
-    version: "1.10.6.*"
+    version: "1.10.8.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: pydeck
@@ -115,10 +115,10 @@ workflow:
       filter: clean
       client: ${{ workflow.er_client_name.return }}
       time_range: ${{ workflow.time_range.return }}
-      # subject_group_name: ${{ workflow.subject_group_var.return }} 
       raise_on_empty: false
       include_details: true
       include_subjectsource_details: true
+      include_subject_additional: false
 
   - name: Transform observations to relocations
     id: subject_reloc
@@ -219,6 +219,7 @@ workflow:
           elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
           # texture (the basemap draped over the terrain) is user-selectable; options are set in rjsf-overrides
           elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
+          imagery_max_zoom: 18
 
   - name: Configure Basemap URLs
     id: custom_basemap_urls
@@ -313,7 +314,18 @@ workflow:
         id: create_controls
         task: create_playback_controls
         partial:
+          visible: true
+          show_play: true 
+          show_restart: true 
+          show_scrubber: true 
+          show_time: true 
+          time_format: "datetime"
+          show_speed: true
+          show_clock: true 
+          show_hint: false
+          preview_camera: true 
           speeds: [0.25,0.5,0.75,1,2,4]
+
 
       - name: Playback Length & Smoothness
         id: timeline_animation

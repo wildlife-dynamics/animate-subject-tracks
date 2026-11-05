@@ -147,6 +147,14 @@ run_single_test_case() {
     # Export ECOSCOPE_WORKFLOWS_RESULTS for workflow to use
     export ECOSCOPE_WORKFLOWS_RESULTS="file://${results_dir}"
 
+    # Mock IO: serve the fake observations in dev/mock-io instead of the
+    # platform's built-in example (which lacks the subjectsource columns).
+    mock_obs="${repo_root}/dev/mock-io/get-subjectgroup-observations.example-return.parquet"
+    if [ -f "$mock_obs" ]; then
+        command -v cygpath > /dev/null 2>&1 && mock_obs=$(cygpath -m "$mock_obs")
+        export WT_TASK_MOCK_IO__ECOSCOPE_PLATFORM_TASKS_IO_GET_SUBJECTGROUP_OBSERVATIONS="$mock_obs"
+    fi
+
     # Extract params for this test case
     params_file="${results_dir}/params.yaml"
     yq ".\"${test_case}\".params" "$test_cases_file" > "$params_file"

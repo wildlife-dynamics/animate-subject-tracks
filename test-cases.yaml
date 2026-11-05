@@ -1,0 +1,69 @@
+# Test cases for dev/pytest-cli.sh (and CI). With mock_io, EarthRanger is not
+# called: get_subjectgroup_observations returns the fake Maasai Mara collars in
+# dev/mock-io/ (regenerate with dev/make_mock_observations.py). The time range
+# matches that data: 2025-03-01 to 2025-03-14.
+
+mara-defaults:
+  name: Mara defaults
+  description: Four fake collars (elephant, lion, giraffe, wildebeest) with the form's defaults; no video.
+  mock_io: true
+  params:
+    workflow_details:
+      name: Animate Subject Tracks - Mara mock
+      description: Fake collar data for testing
+    er_client_name:
+      data_source:
+        name: mep_dev
+    time_range:
+      since: "2025-03-01T00:00:00Z"
+      until: "2025-03-15T00:00:00Z"
+      timezone:
+        label: "UTC+03:00"
+        tzCode: Africa/Nairobi
+        name: (UTC+03:00) Nairobi
+        utc: "+03:00"
+    subject_observations:
+      subject_group_name: Mara Collars (mock)
+    convert_to_trajs:
+      trajectory_segment_filter:
+        min_length_meters: 0.001
+        max_length_meters: 5000
+        min_time_secs: 1
+        max_time_secs: 21600
+        min_speed_kmhr: 0.01
+        max_speed_kmhr: 9
+
+mara-place-names-video:
+  name: Mara place names and video
+  description: Same data with place names on, a fly-around camera and a short video export.
+  mock_io: true
+  params:
+    workflow_details:
+      name: Animate Subject Tracks - Mara mock video
+      description: Fake collar data for testing
+    er_client_name:
+      data_source:
+        name: mep_dev
+    time_range:
+      since: "2025-03-01T00:00:00Z"
+      until: "2025-03-15T00:00:00Z"
+    subject_observations:
+      subject_group_name: Mara Collars (mock)
+    convert_to_trajs:
+      trajectory_segment_filter:
+        min_length_meters: 0.001
+        max_length_meters: 5000
+        min_time_secs: 1
+        max_time_secs: 21600
+        min_speed_kmhr: 0.01
+        max_speed_kmhr: 9
+    terrain_layer:
+      labels: true
+    export_video_toggle:
+      enabled: true
+    create_animation:
+      camera_settings:
+        type_: fly_around
+      duration:
+        auto: false
+        seconds: 8

@@ -9,6 +9,6 @@ channels = [
 ]
 
 [dependencies]
-wt-compiler = ">=0.8.2, <0.9"
+wt-compiler = "==0.10.1"
 graphviz = "*"
 go-yq = "*"

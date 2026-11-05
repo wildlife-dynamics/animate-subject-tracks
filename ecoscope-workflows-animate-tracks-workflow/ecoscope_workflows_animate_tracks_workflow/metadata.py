@@ -27,24 +27,59 @@ def load_params_schema() -> dict[str, Any]:
         return result
 
 
+def _connection_keys(node: Any, defs: dict[str, Any]) -> set[str]:
+    """Return the connection keys reachable from a schema node.
+
+    Walks `node` looking for `$ref`s to definitions whose name ends in
+    "Connection", following refs to other definitions in `defs` so that
+    connections nested inside referenced models are found too.
+
+    Args:
+        node: Schema fragment to walk (dict, list, or scalar)
+        defs: The schema's `$defs` block, used to resolve `$ref`s
+
+    Returns:
+        Connection keys, each a referenced def name minus its "Connection" suffix
+    """
+    found: set[str] = set()
+    seen: set[str] = (
+        set()
+    )  # defs already walked; guards against self-referential schemas
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            ref = node.get("$ref")
+            if isinstance(ref, str) and ref.startswith("#/$defs/"):
+                name = ref.removeprefix("#/$defs/")
+                # Treats a def named "Connection" as ordinary
+                if name.endswith("Connection") and name != "Connection":
+                    found.add(name.removesuffix("Connection"))
+                elif name not in seen:
+                    seen.add(name)
+                    walk(defs.get(name, {}))
+            for key, value in node.items():
+                if key != "$ref":
+                    walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(node)
+    return found
+
+
 def get_data_connection_property_names() -> dict[str, list[str]]:
+    """Map each data connection type to the params properties that require it."""
     params = load_params_schema()
+    defs = params.get("$defs", {})
     data_connections: dict[str, list[str]] = {}
     for k, v in params["properties"].items():
         if isinstance(v, dict) and v.get("properties"):
-            for inner_k, inner_v in v["properties"].items():
-                if isinstance(inner_v, dict) and inner_v.get("$ref"):
-                    ref = inner_v.get("$ref")
-                    if ref.endswith("Connection"):
-                        key = (
-                            inner_v.get("$ref")
-                            .removeprefix("#/$defs/")
-                            .removesuffix("Connection")
-                        )
-                        if data_connections.get(key):
-                            data_connections[key].append(k)
-                        else:
-                            data_connections[key] = [k]
+            for key in sorted(_connection_keys(v["properties"], defs)):
+                if data_connections.get(key):
+                    data_connections[key].append(k)
+                else:
+                    data_connections[key] = [k]
     return data_connections
 
 
