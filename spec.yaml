@@ -1,4 +1,51 @@
 id: animate_tracks
+metadata:
+  name: Animate Subject Tracks
+  description: >-
+    Turns an EarthRanger subject group's GPS history into an animated 3D map: each
+    subject's track sweeps across satellite imagery draped on real terrain as time
+    passes, with a camera you design in the map's Camera panel. The same animation can
+    optionally be exported as an MP4 video.
+  maintainers:
+    - name: Tevin Temu
+      email: tevin@wildlifedynamics.com
+      role: owner
+  outputs:
+    - name: Animate Subject Tracks Dashboard
+      type: dashboard
+      description: >-
+        The animated map as the Subject movements widget, with a Files section for
+        downloading the map and the video.
+      indicators:
+        - name: Animal movement
+    - name: Animated Map
+      type: map
+      description: >-
+        An interactive 3D map (animated_map.html) of each subject's track animating over
+        basemap imagery draped on terrain, with playback controls, map buttons, a legend
+        of subject names and a Camera panel.
+      indicators:
+        - name: Animal movement
+    - name: Animation Video
+      type: file
+      description: >-
+        An H.264 MP4 video (animation.mp4) of the same animation with the same camera,
+        written when Export video is on.
+      indicators:
+        - name: Animal movement
+    - name: Movement Data
+      type: file
+      description: >-
+        GeoParquet files of the cleaned relocations and the trajectory segments.
+      indicators:
+        - name: Animal movement
+  license: BSD-3-Clause
+  repository: https://github.com/wildlife-dynamics/animate-subject-tracks
+  documentation: https://wildlife-dynamics.github.io/animate-subject-tracks/
+  readme: README.md
+  keywords: [animation, movement, tracks, 3d, terrain, video, earthranger, wildlife]
+  thumbnail: resources/thumbnail.png
+  preview: resources/preview.gif
 requirements:
   - name: ecoscope-platform
     version: ==2.25.3
@@ -13,7 +60,7 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-mep
-    version: "1.10.9.*"
+    version: "1.11.0.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: pydeck
@@ -103,6 +150,8 @@ workflow:
   - name: Time Range
     id: time_range
     task: set_time_range
+    partial:
+      time_format: "%d %b %Y %H:%M:%S"
 
   # set groupers -- limiting this to subject_name
   - name: Configure grouping strategy
