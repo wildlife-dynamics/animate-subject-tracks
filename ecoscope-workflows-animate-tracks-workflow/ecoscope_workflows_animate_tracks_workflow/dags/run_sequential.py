@@ -18,6 +18,9 @@ from ecoscope.platform.tasks.preprocessing import (
     relocations_to_trajectory as relocations_to_trajectory,
 )
 from ecoscope.platform.tasks.results import (
+    create_files_single_view as create_files_single_view,
+)
+from ecoscope.platform.tasks.results import (
     create_map_widget_single_view as create_map_widget_single_view,
 )
 from ecoscope.platform.tasks.results import gather_dashboard as gather_dashboard
@@ -60,10 +63,7 @@ from ecoscope_workflows_ext_mep.tasks.animate import (
     render_video_from_settings as render_video_from_settings,
 )
 from ecoscope_workflows_ext_mep.tasks.animate import (
-    set_basemap_option as set_basemap_option,
-)
-from ecoscope_workflows_ext_mep.tasks.animate import (
-    set_basemap_urls as set_basemap_urls,
+    set_video_camera as set_video_camera,
 )
 from ecoscope_workflows_ext_mep.tasks.animate import (
     trajectory_to_trips as trajectory_to_trips,
@@ -135,7 +135,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(**(params.get("time_range") or {}))
+        .partial(time_format="%d %b %Y %H:%M:%S", **(params.get("time_range") or {}))
         .call()
     )
 
@@ -356,6 +356,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .partial(
             elevation_data="https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
             elevation_decoder=terrain_exaggeration,
+            densify_m=150,
             **(params.get("terrain_sampling") or {}),
         )
         .call()
@@ -381,52 +382,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             elevation_data="https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
             elevation_decoder=terrain_exaggeration,
             imagery_max_zoom=18,
+            imagery_look="natural",
+            vignette=0.25,
+            mesh_max_error=1,
             **(params.get("terrain_layer") or {}),
-        )
-        .call()
-    )
-
-    custom_basemap_urls = (
-        task(set_basemap_urls)
-        .validate()
-        .set_task_instance_id("custom_basemap_urls")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            elevation_data="https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
-            texture="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-            **(params.get("custom_basemap_urls") or {}),
-        )
-        .call()
-    )
-
-    basemap_option = (
-        task(set_basemap_option)
-        .validate()
-        .set_task_instance_id("basemap_option")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            basemap={
-                "preset": "default",
-                "elevation_decoder": terrain_exaggeration,
-                "tile_urls": custom_basemap_urls,
-            },
-            **(params.get("basemap_option") or {}),
         )
         .call()
     )
@@ -629,7 +588,28 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(controls=create_controls, **(params.get("timeline_animation") or {}))
+        .partial(
+            controls=create_controls,
+            fps_limit=60,
+            **(params.get("timeline_animation") or {}),
+        )
+        .call()
+    )
+
+    video_camera = (
+        task(set_video_camera)
+        .validate()
+        .set_task_instance_id("video_camera")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("video_camera") or {}))
         .call()
     )
 
@@ -711,6 +691,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
+            camera=video_camera,
             fit_view=True,
             geo_layers=animate_trips,
             tile_layers=[terrain_layer],
@@ -779,6 +760,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(
             html_path=export_video_toggle,
+            camera_settings=video_camera,
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             out_path="animation.mp4",
             fps=30,
@@ -824,6 +806,39 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
+    map_files = (
+        task(create_files_single_view)
+        .validate()
+        .set_task_instance_id("map_files")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(files=map_urls, **(params.get("map_files") or {}))
+        .call()
+    )
+
+    video_files = (
+        task(create_files_single_view)
+        .validate()
+        .set_task_instance_id("video_files")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                never,
+            ],
+            unpack_depth=1,
+        )
+        .partial(files=create_animation, **(params.get("video_files") or {}))
+        .call()
+    )
+
     animate_dashboard = (
         task(gather_dashboard)
         .validate()
@@ -842,6 +857,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             widgets=[animated_map_widget],
             time_range=time_range,
             groupers=groupers,
+            files=[map_files, video_files],
             **(params.get("animate_dashboard") or {}),
         )
         .call()

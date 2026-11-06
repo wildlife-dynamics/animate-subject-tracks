@@ -58,13 +58,6 @@
           ],
           "default": null,
           "title": "Timezone"
-        },
-        "time_format": {
-          "default": "%d %b %Y %H:%M:%S",
-          "title": "Time Format",
-          "type": "string",
-          "description": "The time format",
-          "ecoscope:advanced": true
         }
       },
       "required": [
@@ -152,37 +145,34 @@
         "terrain_sampling": {
           "additionalProperties": false,
           "properties": {
-            "altitude_mode": {
-              "default": "relative_to_ground",
-              "enum": [
-                "clamp_to_ground",
-                "relative_to_ground",
-                "absolute"
+            "altitude": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClampToGround"
+                },
+                {
+                  "$ref": "#/$defs/RelativeToGround"
+                },
+                {
+                  "$ref": "#/$defs/AbsoluteAltitude"
+                },
+                {
+                  "$ref": "#/$defs/RelativeToMesh"
+                }
               ],
-              "title": "Altitude Mode",
-              "type": "string",
-              "description": "Height of the tracks: on the ground (clamp_to_ground; lines can dip into the terrain between fixes), `offset` metres above it (relative_to_ground), or each fix's recorded altitude above sea level (absolute).",
-              "ecoscope:advanced": true
-            },
-            "offset": {
-              "default": 30,
-              "title": "Offset",
-              "type": "number",
-              "description": "Metres above the ground (relative_to_ground), or above sea level for fixes without an altitude (absolute). Ignored by clamp_to_ground.",
-              "ecoscope:advanced": true
-            },
-            "ground_elevation": {
-              "default": 1000.0,
-              "title": "Ground Elevation",
-              "type": "number",
-              "description": "Constant ground used only if DEM sampling fails.",
+              "default": {
+                "mode": "relative_to_ground",
+                "height_m": 30.0
+              },
+              "title": "Track height",
+              "description": "Where the tracks are drawn: on the ground, a set height above it, at each fix's recorded altitude, or a set height above the 3D terrain as drawn on the map.",
               "ecoscope:advanced": true
             }
           },
           "type": "object",
           "required": [],
           "title": "Terrain Sampling",
-          "description": "Control how tracks are draped onto the 3D terrain so they sit on the ground surface rather than floating above it or disappearing below it."
+          "description": "Choose where tracks are drawn - on the ground, a set height above it, at each fix's recorded altitude, or a set height above the 3D terrain as drawn on the map - so they sit on the surface rather than floating above it or disappearing below it."
         },
         "terrain_layer": {
           "additionalProperties": false,
@@ -221,7 +211,7 @@
           "type": "object",
           "required": [],
           "title": "Basemap",
-          "description": "Choose the basemap imagery draped over the 3D terrain."
+          "description": "Choose the basemap imagery draped over the 3D terrain, its colour look and an optional vignette."
         }
       }
     },
@@ -273,17 +263,11 @@
                 },
                 {
                   "$ref": "#/$defs/AnimalModelMarker"
-                },
-                {
-                  "$ref": "#/$defs/ScenegraphLayerDefinition"
-                },
-                {
-                  "$ref": "#/$defs/NoMarker"
                 }
               ],
               "default": {
                 "marker": "dot",
-                "get_radius": 2.0,
+                "get_radius": 4.0,
                 "radius_units": "pixels",
                 "stroked": true,
                 "get_line_color": [
@@ -296,7 +280,7 @@
                 "opacity": 1
               },
               "title": "Marker icon",
-              "description": "Marker drawn at each subject's current position: a flat dot, a preset 3D animal, your own 3D glTF/GLB model, or none.",
+              "description": "Marker drawn at each subject's current position: a flat dot or a 3D animal.",
               "ecoscope:advanced": true
             }
           },
@@ -349,20 +333,35 @@
               "type": "number",
               "description": "Playback length in seconds (e.g. 30 = the whole timeline plays in 30 seconds).",
               "ecoscope:advanced": true
-            },
-            "fps_limit": {
-              "default": 60.0,
-              "exclusiveMinimum": 0.0,
-              "title": "Fps Limit",
-              "type": "number",
-              "ecoscope:advanced": true,
-              "description": "Maximum number of times per second the interactive map redraws while playing. Higher values look smoother but need a faster computer; lower values reduce load on slower machines."
             }
           },
           "type": "object",
           "required": [],
           "title": "Playback Length & Smoothness",
           "description": "Set how long the animation takes to play from the first location to the last."
+        },
+        "video_camera": {
+          "additionalProperties": false,
+          "properties": {
+            "camera_settings": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/CameraFromSettings"
+                }
+              ],
+              "default": {
+                "type_": "settings",
+                "settings": "{\"type_\": \"fixed\"}"
+              },
+              "title": "Camera",
+              "description": "Camera designed in the interactive map's Camera panel: paste the copied settings, or give the path of the downloaded settings file, then re-run. The default is a fixed view of the whole scene.",
+              "ecoscope:advanced": true
+            }
+          },
+          "type": "object",
+          "required": [],
+          "title": "Camera",
+          "description": "How the camera moves while the tracks play. The interactive map follows this camera, and so does the video when Export video is on. Design one in the map's Camera panel, then paste its settings here and re-run."
         }
       }
     },
@@ -379,7 +378,7 @@
               "title": "Export video",
               "type": "boolean",
               "description": "Off by default. Turn on to also render the animation as an MP4 video. Exporting a video makes the workflow take longer to run.",
-              "ecoscope:advanced": true
+              "ecoscope:advanced": false
             }
           },
           "type": "object",
@@ -389,20 +388,6 @@
         "create_animation": {
           "additionalProperties": false,
           "properties": {
-            "camera_settings": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/CameraFromSettings"
-                }
-              ],
-              "default": {
-                "type_": "settings",
-                "settings": "{\"type_\": \"fixed\"}"
-              },
-              "title": "Camera",
-              "description": "Camera designed in the interactive map's Camera panel: paste the copied settings, or give the path of the downloaded settings file. The default is a fixed view of the whole scene.",
-              "ecoscope:advanced": true
-            },
             "duration": {
               "allOf": [
                 {
@@ -415,6 +400,22 @@
               },
               "title": "Duration",
               "description": "Video duration. 'auto' uses the animation's own playback length (duration_s).",
+              "ecoscope:advanced": true
+            },
+            "resolution": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PresetResolution"
+                },
+                {
+                  "$ref": "#/$defs/CustomResolution"
+                }
+              ],
+              "default": {
+                "preset": "720p"
+              },
+              "title": "Resolution",
+              "description": "Output video resolution: a landscape preset (720p/1080p/4K), vertical 9:16 or square 1:1 for social media, or 'custom' width/height.",
               "ecoscope:advanced": true
             },
             "overlays": {
@@ -440,7 +441,7 @@
           "required": [],
           "type": "object",
           "title": "Video Settings",
-          "description": "Choose how the camera moves, how long the video runs and its resolution."
+          "description": "Choose how long the video runs and its resolution. The camera is set in Camera, which the interactive map follows too."
         }
       }
     }
@@ -535,8 +536,93 @@
       "title": "TrajectorySegmentFilter",
       "type": "object"
     },
+    "AbsoluteAltitude": {
+      "description": "Each fix's recorded altitude above sea level (Google's ABSOLUTE). Fixes without one, as is usual for\nEarthRanger data, are drawn a set height above the ground instead of at sea level.",
+      "properties": {
+        "mode": {
+          "const": "absolute",
+          "default": "absolute",
+          "enum": [
+            "absolute"
+          ],
+          "title": "Track height",
+          "type": "string"
+        },
+        "fallback_height_m": {
+          "default": 30.0,
+          "description": "Metres above the ground for fixes that have no recorded altitude.",
+          "minimum": 0.0,
+          "title": "Height without an altitude (m)",
+          "type": "number"
+        }
+      },
+      "title": "Recorded altitude (where available)",
+      "type": "object"
+    },
+    "ClampToGround": {
+      "description": "On the ground: tracks follow the terrain; recorded altitudes are ignored (Google's CLAMP_TO_GROUND).",
+      "properties": {
+        "mode": {
+          "const": "clamp_to_ground",
+          "default": "clamp_to_ground",
+          "enum": [
+            "clamp_to_ground"
+          ],
+          "title": "Track height",
+          "type": "string"
+        }
+      },
+      "title": "On the ground",
+      "type": "object"
+    },
+    "RelativeToGround": {
+      "description": "A set height above the ground, measured from elevation data (Google's RELATIVE_TO_GROUND).",
+      "properties": {
+        "mode": {
+          "const": "relative_to_ground",
+          "default": "relative_to_ground",
+          "enum": [
+            "relative_to_ground"
+          ],
+          "title": "Track height",
+          "type": "string"
+        },
+        "height_m": {
+          "default": 30.0,
+          "description": "Metres above the ground the tracks are drawn at.",
+          "minimum": 0.0,
+          "title": "Height (m)",
+          "type": "number"
+        }
+      },
+      "title": "Above the ground",
+      "type": "object"
+    },
+    "RelativeToMesh": {
+      "description": "A set height above the 3D terrain as drawn on the map (Google's RELATIVE_TO_MESH): tracks stay on the\nrendered surface at every zoom, where elevation-data heights can sit slightly above or below it.",
+      "properties": {
+        "mode": {
+          "const": "relative_to_mesh",
+          "default": "relative_to_mesh",
+          "enum": [
+            "relative_to_mesh"
+          ],
+          "title": "Track height",
+          "type": "string"
+        },
+        "height_m": {
+          "default": 30.0,
+          "description": "Metres above the ground the tracks are drawn at.",
+          "minimum": 0.0,
+          "title": "Height (m)",
+          "type": "number"
+        }
+      },
+      "title": "Above the 3D terrain",
+      "type": "object"
+    },
     "AnimalModelMarker": {
-      "description": "A ready-tuned 3D animal model: pick the animal, everything else is preset.\n\nFor your own GLB, or to tune orientation/size by hand, use the custom 3D model\n(ScenegraphLayerDefinition) instead.",
+      "description": "A ready-tuned 3D animal model: pick the animal, everything else is preset.\n\nDrawn as a ScenegraphLayerDefinition (to_model) with the animal's tuned orientation and size.",
       "properties": {
         "marker": {
           "const": "animal",
@@ -599,7 +685,7 @@
           "type": "string"
         },
         "get_radius": {
-          "default": 2.0,
+          "default": 4.0,
           "ecoscope:advanced": true,
           "exclusiveMinimum": 0.0,
           "title": "Get Radius",
@@ -674,185 +760,6 @@
         }
       },
       "title": "Dot",
-      "type": "object"
-    },
-    "NoMarker": {
-      "description": "No marker at the current position; only the trails are drawn.",
-      "properties": {
-        "marker": {
-          "const": "none",
-          "default": "none",
-          "enum": [
-            "none"
-          ],
-          "title": "Marker icon",
-          "type": "string"
-        }
-      },
-      "title": "None",
-      "type": "object"
-    },
-    "ScenegraphLayerDefinition": {
-      "description": "An animated 3D head built from a glTF/GLB model (deck.gl ScenegraphLayer).\n\nCreate one with create_scenegraph_layer() and use it as\nTripsAnimation.head. Its position and heading are driven per-frame\nfrom the TripsLayer, so it follows each subject's current location. `glb` accepts\nan http(s) URL, a `data:` URI, or a local file path (read and embedded as a data\nURI). None -> the preset elephant model. If the ScenegraphLayer\nconstructor or the glTF loader can't be resolved at runtime, the head silently\nfalls back to the flat ScatterplotLayer dot. For a ready-tuned animal, use\nAnimalModelMarker instead.\nSee https://deck.gl/docs/api-reference/mesh-layers/scenegraph-layer for more info.",
-      "properties": {
-        "marker": {
-          "const": "model",
-          "default": "model",
-          "enum": [
-            "model"
-          ],
-          "title": "Marker icon",
-          "type": "string"
-        },
-        "glb": {
-          "default": null,
-          "description": "GLB source: an http(s) URL, a data: URI, or a local file path. None -> the preset elephant model.",
-          "ecoscope:advanced": true,
-          "title": "3D model (GLB)",
-          "type": "string"
-        },
-        "size_scale": {
-          "default": 50.0,
-          "description": "Model size multiplier. Tune to your scene.",
-          "ecoscope:advanced": true,
-          "exclusiveMinimum": 0.0,
-          "title": "Size scale",
-          "type": "number"
-        },
-        "size_min_pixels": {
-          "default": 12.0,
-          "description": "Clamp the on-screen model to at least this many pixels so it stays visible when zoomed out.",
-          "ecoscope:advanced": true,
-          "maximum": 200.0,
-          "minimum": 1.0,
-          "title": "Min size (px)",
-          "type": "number"
-        },
-        "size_max_pixels": {
-          "default": 75.0,
-          "description": "Upper clamp on the model's on-screen size in pixels. Must be at least Min size.",
-          "ecoscope:advanced": true,
-          "maximum": 500.0,
-          "minimum": 1.0,
-          "title": "Max size (px)",
-          "type": "number"
-        },
-        "face_heading": {
-          "default": true,
-          "description": "Rotate the model to face its direction of travel.",
-          "ecoscope:advanced": true,
-          "title": "Face Heading",
-          "type": "boolean"
-        },
-        "yaw_offset": {
-          "default": 0.0,
-          "description": "Degrees added to the computed heading so the model's nose aligns with travel. Model-dependent; tweak if your model faces sideways.",
-          "ecoscope:advanced": true,
-          "title": "Yaw Offset",
-          "type": "number"
-        },
-        "model_pitch": {
-          "default": 90.0,
-          "description": "Tilt of the MODEL itself (deg), independent of the camera. Use to correct a model authored nose-up/down; NOT the view pitch.",
-          "ecoscope:advanced": true,
-          "title": "Model Pitch",
-          "type": "number"
-        },
-        "model_roll": {
-          "default": 0.0,
-          "description": "Bank of the MODEL itself (deg), independent of the camera.",
-          "ecoscope:advanced": true,
-          "title": "Model Roll",
-          "type": "number"
-        },
-        "smooth_samples": {
-          "default": 2,
-          "description": "Heading/slope smoothing window in track fixes (+/- N). Higher = smoother orientation but more lag; 0 = raw single segment.",
-          "ecoscope:advanced": true,
-          "title": "Smooth Samples",
-          "type": "integer"
-        },
-        "terrain_pitch": {
-          "default": false,
-          "description": "Tilt the model to the terrain slope (from each fix's z) so it noses up on climbs / down on descents. OFF by default -> stays upright; enable only for steady, climbing tracks (it can tip near-stationary subjects).",
-          "ecoscope:advanced": true,
-          "title": "Terrain Pitch",
-          "type": "boolean"
-        },
-        "terrain_pitch_scale": {
-          "default": 1.0,
-          "description": "Sign/strength of terrain pitch. Set -1.0 to flip if the model tilts the wrong way; <1 to soften. (Tilt is also capped at +/-20deg.)",
-          "ecoscope:advanced": true,
-          "title": "Terrain Pitch Scale",
-          "type": "number"
-        },
-        "min_move_m": {
-          "default": 3.0,
-          "description": "If the subject moves less than this (m) across the smoothing window, hold the last heading and keep the model level -- stops it spinning or tipping while milling in place.",
-          "ecoscope:advanced": true,
-          "title": "Min Move M",
-          "type": "number"
-        },
-        "pbr_lighting": {
-          "default": true,
-          "description": "Shade the model with physically-based lighting. Uncheck for flat shading, which shows subject colors more accurately.",
-          "ecoscope:advanced": true,
-          "title": "Realistic lighting (PBR)",
-          "type": "boolean"
-        },
-        "tint": {
-          "default": [
-            220,
-            220,
-            255
-          ],
-          "description": "Optional RGB tint over the model as [R, G, B]. None -> the model's own materials.",
-          "ecoscope:advanced": true,
-          "items": {
-            "type": "integer"
-          },
-          "title": "Tint",
-          "type": "array"
-        },
-        "use_track_color": {
-          "default": true,
-          "description": "Colour the model with each subject's track colour. False -> use `tint` (or the model's own materials). Note: the colour multiplies the model's material, so it reads truest with a light/neutral glb and flat lighting (pbr_lighting=False).",
-          "ecoscope:advanced": true,
-          "title": "Use subject color",
-          "type": "boolean"
-        },
-        "walk_animation": {
-          "default": null,
-          "description": "Name or index of the model's animation to play while the subject moves (with the trips animation's speed response on). None -> no animation.",
-          "ecoscope:advanced": true,
-          "title": "Walk animation",
-          "type": "string"
-        },
-        "run_animation": {
-          "default": null,
-          "description": "Animation played while the subject moves fast (over 2.5x its typical speed). None -> the walk animation.",
-          "ecoscope:advanced": true,
-          "title": "Run animation",
-          "type": "string"
-        },
-        "idle_animation": {
-          "default": null,
-          "description": "Animation played while the subject rests. None -> the model holds still.",
-          "ecoscope:advanced": true,
-          "title": "Idle animation",
-          "type": "string"
-        },
-        "animation_speed": {
-          "default": 1.0,
-          "description": "Playback speed of the model's animations (1 = as authored).",
-          "ecoscope:advanced": true,
-          "exclusiveMinimum": 0.0,
-          "maximum": 10.0,
-          "title": "Animation Speed",
-          "type": "number"
-        }
-      },
-      "title": "3D model (custom)",
       "type": "object"
     },
     "CameraFromSettings": {
@@ -952,23 +859,139 @@
       "title": "CameraKeyframe",
       "type": "object"
     },
-    "DurationConfig": {
+    "CinematicCamera": {
+      "description": "Opens on the whole scene, flies in to the action, then follows it with a tilted camera that turns\nslowly.",
       "properties": {
-        "auto": {
+        "type_": {
+          "const": "cinematic",
+          "default": "cinematic",
+          "enum": [
+            "cinematic"
+          ],
+          "title": "Camera",
+          "type": "string"
+        },
+        "subjects": {
+          "default": null,
+          "description": "Only frame these subjects (their value in any column, e.g. names). Leave blank for everything that animates.",
+          "ecoscope:advanced": true,
+          "items": {
+            "type": "string"
+          },
+          "title": "Subjects",
+          "type": "array"
+        },
+        "tilt": {
+          "default": 55.0,
+          "description": "Tilt in degrees (0 = straight down).",
+          "maximum": 80.0,
+          "minimum": 0.0,
+          "title": "Tilt",
+          "type": "number"
+        },
+        "heading": {
+          "default": null,
+          "description": "Compass heading in degrees. Leave blank for the map's.",
+          "ge": -360,
+          "le": 360,
+          "title": "Heading",
+          "type": "number"
+        },
+        "bearing_mode": {
+          "default": "rotate",
+          "description": "'rotate' turns steadily by `rotate_deg` over the clip, 'heading' faces the direction of travel, 'fixed' keeps the heading.",
+          "enum": [
+            "rotate",
+            "heading",
+            "fixed"
+          ],
+          "title": "Turning",
+          "type": "string"
+        },
+        "rotate_deg": {
+          "default": 45.0,
+          "description": "Total turn over the clip for 'rotate'.",
+          "maximum": 720.0,
+          "minimum": -720.0,
+          "title": "Turn (\u00b0)",
+          "type": "number"
+        },
+        "intro_frac": {
+          "default": 0.12,
+          "description": "Share of the clip spent flying in from the whole-scene view. 0 = start on the action.",
+          "maximum": 0.5,
+          "minimum": 0.0,
+          "title": "Fly-in",
+          "type": "number"
+        },
+        "fov": {
+          "default": null,
+          "description": "Vertical lens angle: wider is a wide-angle look, narrower a telephoto one. Leave blank for the map's (about 37\u00b0).",
+          "ecoscope:advanced": true,
+          "ge": 5,
+          "le": 80,
+          "title": "Field of view (\u00b0)",
+          "type": "number"
+        },
+        "lead_room": {
+          "default": 0.1,
+          "description": "Space left ahead of moving subjects, as a share of the view: the camera looks a little ahead, so they sit behind the centre with room to move into. 0 = centred.",
+          "maximum": 0.5,
+          "minimum": 0.0,
+          "title": "Lead room",
+          "type": "number"
+        },
+        "speed_zoom": {
+          "default": 0.3,
+          "description": "Zoom in (up to a level) while subjects rest or move slowly, and pull back while they travel fast. 0 = off, 1 = strongest.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Zoom with the action",
+          "type": "number"
+        },
+        "keep_in_view": {
           "default": true,
-          "description": "Match the animation's own playback length. Uncheck to set a fixed duration.",
-          "title": "Auto",
+          "description": "Raise the camera when a ridge would hide what it follows, easing back down after it.",
+          "title": "Keep in view over hills",
           "type": "boolean"
         },
-        "seconds": {
-          "default": 30.0,
-          "description": "Video duration in seconds. Only used when 'Auto' is unchecked.",
-          "exclusiveMinimum": 0.0,
-          "title": "Duration (seconds)",
+        "lead_frac": {
+          "default": 0.0,
+          "description": "Look ahead by this share of the timeline, so the camera leads.",
+          "ecoscope:advanced": true,
+          "maximum": 0.5,
+          "minimum": 0.0,
+          "title": "Lead Frac",
           "type": "number"
+        },
+        "follow_window": {
+          "default": 0.1,
+          "description": "Share of the timeline treated as 'recent' when framing.",
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "title": "Follow Window",
+          "type": "number"
+        },
+        "follow_smoothing": {
+          "default": 0.25,
+          "description": "Share of the gap to the action closed every 1/30 s: low = smooth but laggy, 1 = snaps to it. Independent of fps.",
+          "ecoscope:advanced": true,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Follow Smoothing",
+          "type": "number"
+        },
+        "fit_padding": {
+          "default": 80,
+          "description": "Padding in pixels around the action.",
+          "ecoscope:advanced": true,
+          "minimum": 0,
+          "title": "Fit Padding",
+          "type": "integer"
         }
       },
-      "title": "DurationConfig",
+      "title": "Cinematic fly-through",
       "type": "object"
     },
     "FixedCamera": {
@@ -1168,6 +1191,28 @@
           "title": "Field of view (\u00b0)",
           "type": "number"
         },
+        "lead_room": {
+          "default": 0.1,
+          "description": "Space left ahead of moving subjects, as a share of the view: the camera looks a little ahead, so they sit behind the centre with room to move into. 0 = centred.",
+          "maximum": 0.5,
+          "minimum": 0.0,
+          "title": "Lead room",
+          "type": "number"
+        },
+        "speed_zoom": {
+          "default": 0.3,
+          "description": "Zoom in (up to a level) while subjects rest or move slowly, and pull back while they travel fast. 0 = off, 1 = strongest.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Zoom with the action",
+          "type": "number"
+        },
+        "keep_in_view": {
+          "default": true,
+          "description": "Raise the camera when a ridge would hide what it follows, easing back down after it.",
+          "title": "Keep in view over hills",
+          "type": "boolean"
+        },
         "follow_window": {
           "default": 0.1,
           "description": "Share of the timeline treated as 'recent' when framing.",
@@ -1247,6 +1292,28 @@
           "le": 80,
           "title": "Field of view (\u00b0)",
           "type": "number"
+        },
+        "lead_room": {
+          "default": 0.15,
+          "description": "Space left ahead of moving subjects, as a share of the view: the camera looks a little ahead, so they sit behind the centre with room to move into. 0 = centred.",
+          "maximum": 0.5,
+          "minimum": 0.0,
+          "title": "Lead room",
+          "type": "number"
+        },
+        "speed_zoom": {
+          "default": 0.5,
+          "description": "Zoom in (up to a level) while subjects rest or move slowly, and pull back while they travel fast. 0 = off, 1 = strongest.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Zoom with the action",
+          "type": "number"
+        },
+        "keep_in_view": {
+          "default": true,
+          "description": "Raise the camera when a ridge would hide what it follows, easing back down after it.",
+          "title": "Keep in view over hills",
+          "type": "boolean"
         },
         "follow_smoothing": {
           "default": 0.3,
@@ -1384,6 +1451,187 @@
       "title": "Follow a subject",
       "type": "object"
     },
+    "SubjectTourCamera": {
+      "description": "Follows each subject in turn for an equal share of the clip, flying from one to the next, with a\nname card as each one comes in.",
+      "properties": {
+        "type_": {
+          "const": "tour",
+          "default": "tour",
+          "enum": [
+            "tour"
+          ],
+          "title": "Camera",
+          "type": "string"
+        },
+        "subjects": {
+          "default": null,
+          "description": "Subjects to visit, in this order (their value in any column, e.g. names). Leave blank for every subject, in name order.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Subjects",
+          "type": "array"
+        },
+        "range_m": {
+          "default": 800.0,
+          "description": "Camera distance from the subject in metres.",
+          "exclusiveMinimum": 0.0,
+          "title": "Range (m)",
+          "type": "number"
+        },
+        "tilt": {
+          "default": 60.0,
+          "description": "Tilt in degrees (0 = straight down).",
+          "maximum": 80.0,
+          "minimum": 0.0,
+          "title": "Tilt",
+          "type": "number"
+        },
+        "heading": {
+          "default": null,
+          "description": "Compass heading in degrees. Leave blank to face each subject's direction of travel.",
+          "ge": -360,
+          "le": 360,
+          "title": "Heading",
+          "type": "number"
+        },
+        "fov": {
+          "default": null,
+          "description": "Vertical lens angle: wider is a wide-angle look, narrower a telephoto one. Leave blank for the map's (about 37\u00b0).",
+          "ecoscope:advanced": true,
+          "ge": 5,
+          "le": 80,
+          "title": "Field of view (\u00b0)",
+          "type": "number"
+        },
+        "name_cards": {
+          "default": true,
+          "description": "Show each subject's name for a few seconds as the camera reaches it.",
+          "title": "Name Cards",
+          "type": "boolean"
+        },
+        "transition_frac": {
+          "default": 0.2,
+          "description": "Share of each subject's turn spent flying over from the previous one.",
+          "maximum": 0.9,
+          "minimum": 0.0,
+          "title": "Fly between",
+          "type": "number"
+        },
+        "lead_room": {
+          "default": 0.15,
+          "description": "Space left ahead of moving subjects, as a share of the view: the camera looks a little ahead, so they sit behind the centre with room to move into. 0 = centred.",
+          "maximum": 0.5,
+          "minimum": 0.0,
+          "title": "Lead room",
+          "type": "number"
+        },
+        "speed_zoom": {
+          "default": 0.5,
+          "description": "Zoom in (up to a level) while subjects rest or move slowly, and pull back while they travel fast. 0 = off, 1 = strongest.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Zoom with the action",
+          "type": "number"
+        },
+        "keep_in_view": {
+          "default": true,
+          "description": "Raise the camera when a ridge would hide what it follows, easing back down after it.",
+          "title": "Keep in view over hills",
+          "type": "boolean"
+        },
+        "follow_smoothing": {
+          "default": 0.3,
+          "description": "Share of the gap to the subject closed every 1/30 s: low = drifts behind, 1 = locked on.",
+          "ecoscope:advanced": true,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Follow Smoothing",
+          "type": "number"
+        },
+        "turn_smoothing": {
+          "default": 0.15,
+          "description": "Share of the turn towards the direction of travel made every 1/30 s: low = slow, sweeping turns, 1 = snaps.",
+          "ecoscope:advanced": true,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Turn Smoothing",
+          "type": "number"
+        }
+      },
+      "title": "Subject tour",
+      "type": "object"
+    },
+    "CustomResolution": {
+      "description": "Output video resolution at an exact width/height.",
+      "properties": {
+        "preset": {
+          "const": "custom",
+          "default": "custom",
+          "enum": [
+            "custom"
+          ],
+          "title": "Resolution",
+          "type": "string"
+        },
+        "width": {
+          "default": 1280,
+          "description": "Custom video width in pixels.",
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "integer"
+        },
+        "height": {
+          "default": 720,
+          "description": "Custom video height in pixels.",
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "integer"
+        }
+      },
+      "title": "Custom",
+      "type": "object"
+    },
+    "DurationConfig": {
+      "properties": {
+        "auto": {
+          "default": true,
+          "description": "Match the animation's own playback length. Uncheck to set a fixed duration.",
+          "title": "Auto",
+          "type": "boolean"
+        },
+        "seconds": {
+          "default": 30.0,
+          "description": "Video duration in seconds. Only used when 'Auto' is unchecked.",
+          "exclusiveMinimum": 0.0,
+          "title": "Duration (seconds)",
+          "type": "number"
+        }
+      },
+      "title": "DurationConfig",
+      "type": "object"
+    },
+    "PresetResolution": {
+      "description": "Output video resolution from a common preset.",
+      "properties": {
+        "preset": {
+          "default": "720p",
+          "description": "Common output video resolution preset: landscape 16:9 (720p, 1080p, 4k), vertical 9:16 for phone stories and reels (720p-vertical, 1080p-vertical) or square 1:1 (1080p-square).",
+          "enum": [
+            "720p",
+            "1080p",
+            "4k",
+            "720p-vertical",
+            "1080p-vertical",
+            "1080p-square"
+          ],
+          "title": "Resolution",
+          "type": "string"
+        }
+      },
+      "title": "Preset",
+      "type": "object"
+    },
     "VideoOverlays": {
       "description": "What the video shows over the map. The playback bar and camera panel are never shown.",
       "properties": {
@@ -1451,8 +1699,7 @@
       "ui:order": [
         "since",
         "until",
-        "timezone",
-        "time_format"
+        "timezone"
       ]
     },
     "Terrain": {
@@ -1461,13 +1708,6 @@
         "terrain_sampling",
         "terrain_layer"
       ],
-      "terrain_sampling": {
-        "ui:order": [
-          "altitude_mode",
-          "offset",
-          "ground_elevation"
-        ]
-      },
       "terrain_layer": {
         "ui:order": [
           "texture",
@@ -1487,19 +1727,14 @@
       "ui:order": [
         "trips_animation",
         "create_controls",
-        "timeline_animation"
+        "timeline_animation",
+        "video_camera"
       ],
       "create_controls": {
         "ui:order": [
           "position",
           "show_camera",
           "show_map_controls"
-        ]
-      },
-      "timeline_animation": {
-        "ui:order": [
-          "duration",
-          "fps_limit"
         ]
       }
     },
@@ -1510,8 +1745,8 @@
       ],
       "create_animation": {
         "ui:order": [
-          "camera_settings",
           "duration",
+          "resolution",
           "overlays"
         ]
       }

@@ -2,20 +2,22 @@
 
 Turns an EarthRanger subject group's GPS history into an animated 3D map: each subject's track sweeps across real terrain as time passes. The same animation can optionally be exported as an MP4 video.
 
+![Four collared animals' tracks animating over satellite imagery draped on 3D terrain in the Maasai Mara, with a fly-around camera](resources/preview.gif)
+
 Full documentation: **[wildlife-dynamics.github.io/animate-subject-tracks](https://wildlife-dynamics.github.io/animate-subject-tracks/)** (User Guide, Technical Guide and Troubleshooting).
 
 ## What it produces
 
-- An **interactive animated 3D map** (`animated_map.html`). Each subject is drawn as a trail in its EarthRanger colour, with a marker at its current position, over a basemap of your choice (satellite imagery by default) draped on 3D terrain. It has a playback bar (play/pause, restart, time slider, speed) and a legend of subject names.
-- An optional **MP4 video** (`animation.mp4`) of the same animation, recorded with the camera movement you choose. Video export is off by default.
+- An **interactive animated 3D map** (`animated_map.html`). Each subject is drawn as a trail in its EarthRanger colour, with a marker at its current position, over a basemap of your choice (satellite imagery by default) draped on 3D terrain. It has a playback bar, map buttons (zoom, compass, reset view, fullscreen), a legend of subject names, and a **Camera panel** for designing how the camera moves.
+- An optional **MP4 video** (`animation.mp4`) of the same animation, recorded with the same camera the map plays with. Video export is off by default.
 - **GeoParquet files** of the cleaned relocations and trajectories, for further analysis.
-- A **dashboard** showing the animated map, with the workflow details and time range.
+- A **dashboard** showing the animated map, with the workflow details and time range, and a **Files** section for downloading the map and the video.
 
 ## Requirements
 
 - An **EarthRanger connection** configured in the workflow runner.
-- The name of a **subject group** in EarthRanger, e.g. `Elephants`. Every subject in the group gets its own track.
-- Internet access while the workflow runs. Terrain elevation tiles (AWS Terrarium) and basemap imagery (Esri ArcGIS Online) are fetched live.
+- A **subject group** in EarthRanger, e.g. `Elephants`. Every subject in the group gets its own track.
+- Internet access while the workflow runs and while you view the map. Terrain elevation tiles (AWS Terrarium) and basemap imagery (Esri ArcGIS Online) are fetched live.
 
 > Longer time ranges and larger subject groups take longer to fetch and, if video export is on, to record as video. For a first run, a range of a few days to a few weeks works well.
 
@@ -85,31 +87,40 @@ Controls how the 3D terrain looks and how the tracks sit on it.
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| Exaggeration | `1.0` | Vertical scale of the 3D terrain. `1.0` is true scale; `2.0` doubles apparent heights, which helps on flat landscapes. |
+| Exaggeration | `1.0` | Vertical scale of the 3D terrain. `1.0` is true scale; `2.0` doubles apparent heights, which helps on flat landscapes. The tracks are raised to match. |
 
 #### Terrain Sampling *(advanced)*
 
-| Field | Default | Description |
-|-------|---------|-------------|
-| Offset | `30` m | Height added above the ground at every track point, so trails sit on top of the terrain rather than inside it |
-| Ground Elevation | `1000` m | Constant ground height used only if elevation tiles can't be read |
+**Track height** sets where the tracks are drawn. The choices follow Google Maps 3D's altitude modes, and each shows only its own setting:
+
+| Option | Setting | What it does |
+|--------|---------|--------------|
+| Above the ground *(default)* | Height `30` m | Tracks float a set height above the ground |
+| On the ground | — | Tracks lie on the ground; any recorded altitude is ignored |
+| Recorded altitude (where available) | Height without an altitude `30` m | Each fix at its recorded altitude above sea level. Fixes without one (usual for EarthRanger data) sit the set height above the ground instead of at sea level. |
+| Above the 3D terrain | Height `30` m | A set height above the terrain *as drawn on the map*, so tracks, markers and labels stay on the surface at every zoom |
+
+Tracks also get an extra point every 150 m, so lines follow ridges and valleys between fixes instead of cutting through hills.
 
 #### Basemap
 
 | Field | Default | Description |
 |-------|---------|-------------|
 | Basemap | Satellite | Map imagery draped over the 3D terrain, in both the interactive map and the video |
+| Place names | Off | Adds place names and boundaries (Esri World Boundaries and Places) over the basemap |
 
-| Option | Description |
+| Basemap option | Description |
 |--------|-------------|
-| Satellite *(default)* | Esri World Imagery aerial and satellite photos |
+| Satellite *(default)* | Esri World Imagery aerial and satellite photos, sharp to about 0.6 m a pixel when zoomed in |
 | Terrain | Esri World Topographic Map, with contours, roads and place names |
 | Roadmap | Esri World Street Map |
 | USGS Hillshade | Esri World Hillshade, a grey shaded-relief map that emphasises landforms |
 
+The basemap is given a natural colour look (slightly richer and warmer) and a soft vignette. Tracks and markers keep the colours shown in the legend.
+
 ### Map Zoom & Extent *(advanced)*
 
-The map is automatically centred and zoomed to fit every track. These two fields set the viewing angle, which the video cameras also use.
+The map opens centred and zoomed to fit every track. These two fields set the viewing angle, which the cameras also use.
 
 | Field | Default | Description |
 |-------|---------|-------------|
@@ -118,7 +129,7 @@ The map is automatically centred and zoomed to fit every track. These two fields
 
 ### Animation
 
-Controls how the tracks animate on the map.
+Controls how the tracks animate on the map, and how the camera moves.
 
 #### Create Animation *(advanced)*
 
@@ -127,22 +138,49 @@ Controls how the tracks animate on the map.
 | Option | Description |
 |--------|-------------|
 | Dot *(default)* | A flat circle in the subject's colour with a white outline |
-| 3D animal | A ready-tuned 3D model: elephant, giraffe, cheetah, leopard or lion |
-| 3D model (custom) | Your own glTF/GLB model (URL or file path), with controls for size, heading and tilt |
-| None | No marker; only the trails are drawn |
+| 3D animal | A ready-tuned 3D model: elephant, giraffe, cheetah, leopard or lion, coloured by the subject's track and lit by the sun |
 
 #### Playback Control *(advanced)*
 
-Sets which parts of the playback bar appear on the interactive map: play/pause, restart, time slider, playback clock, data time, speed button (0.5×, 1×, 2×, 4×), and whether the bar sits at the **bottom** or **top**. All are shown by default. **Time Format** shows the data time as a full date-time, a date (default), or time elapsed since the start.
+| Field | Default | Description |
+|-------|---------|-------------|
+| Position | Bottom | Whether the playback bar sits at the bottom or top of the map |
+| Show Camera | On | The camera button on the playback bar, which opens the Camera panel |
+| Show map buttons | On | Zoom in/out, compass, back to the opening view, fullscreen, and a spinner while the map loads |
+
+The playback bar always has play/pause, restart, a time slider, the playback clock (e.g. `0:12 / 0:30`), the data date and time, and a speed button (0.25× to 4×).
 
 #### Playback Length & Smoothness *(advanced)*
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| Duration S | `30` s | How long playback takes from the first location to the last. The video uses the same length by default. |
-| Fps Limit | `30` | Maximum number of times per second the interactive map redraws while playing. Higher values look smoother but need a faster computer; lower values reduce load on slower machines. |
+| Duration | `30` s | How long playback takes from the first location to the last. The video uses the same length by default. |
 
-### Video Export *(advanced)*
+#### Camera
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| Camera settings | A fixed view of the whole scene | Settings copied from the map's **Camera panel** (or the path of its downloaded `.json` file). The interactive map plays with this camera, and so does the video. |
+
+To set a camera:
+
+1. Run the workflow once and open the animated map.
+2. Click the **camera button** on the playback bar, pick a camera and adjust it. Press play to preview it; **Use current view** fills in the centre, distance, tilt and heading from wherever you've moved the map.
+3. Click **Copy settings** (or **Download**), paste them into **Camera settings**, and run the workflow again.
+
+| Camera | What it does |
+|--------|--------------|
+| Fixed view | Holds one view for the whole clip; blank values frame the whole scene |
+| Fly to & around | Flies in from the whole scene, then circles a point (blank = the centre of the data) |
+| Follow a subject | Stays behind one subject, facing where it is heading (blank = the longest-running track) |
+| Subject tour | Follows each subject in turn, flying between them, with each subject's name shown as the camera reaches it |
+| Follow the action | Frames the recent movement of all subjects (or the ones you list), re-fitting as they move and spread |
+| Cinematic fly-through | Opens on the whole scene, flies in to the action, then follows it with a tilted camera that slowly turns |
+| Keyframes | Flies through waypoints you add in the panel, upload as a file (`.json`, `.geojson`, `.csv` or `.tsv` with lon/lat), or derive from a subject's track |
+
+The following cameras (Follow a subject, Subject tour, Follow the action, Cinematic fly-through) move smoothly and also offer **Lead room** (space ahead of moving subjects), **Zoom with the action** (in while subjects rest, out while they travel fast) and **Keep in view over hills** (the camera rises when a ridge would hide what it follows).
+
+### Video Export
 
 Exports the animation as an MP4 video. **Video export is off by default**, so only the interactive map is produced.
 
@@ -152,27 +190,15 @@ Exports the animation as an MP4 video. **Video export is off by default**, so on
 |-------|---------|-------------|
 | Export video | Off | Turn on to also render the animation as an MP4 video. Recording a video makes the workflow take longer to run. |
 
-#### Video Settings
+#### Video Settings *(advanced)*
 
-These settings only apply when **Export video** is on.
+These settings only apply when **Export video** is on. The video uses the camera set in **Animation → Camera**.
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| Camera | Static | How the video camera moves (see below) |
 | Duration | Auto | **Auto** matches the animation's playback length. Uncheck it to set a fixed length in seconds. |
-| Resolution | 720p | A preset (720p, 1080p, 4K) or a custom width and height in pixels |
-
-Every camera frames whatever is animating at the video's size, using the map's pitch and bearing. **Zoom Offset** nudges the automatic framing closer (`+1` is twice as close) or further away.
-
-| Camera | What it does |
-|--------|--------------|
-| Static | Holds one view that fits all the tracks for the whole clip |
-| Follow the action | Frames the most recent movement and follows it smoothly. Can rotate to face the direction of travel. |
-| Orbit | Circles the centre of all the tracks |
-| Fit everything so far | Zooms out as needed to keep everything shown so far in frame |
-| Cinematic fly-through | Opens on the whole scene, then follows the action with a slowly turning, tilted camera |
-| Keyframes | Flies through waypoints: follow one subject (blank = the longest-running track), or upload a waypoint file (`.json`, `.geojson`, `.csv` or `.tsv` with lon/lat columns) |
-| Fly to & around | Flies to a point (blank = the centre of the data), then circles it |
+| Overlays | All on | The date and time (and which corner it sits in), legend, north arrow, scale bar, title and marker labels |
+| Resolution | 720p | 720p, 1080p or 4K landscape, 720p or 1080p vertical (9:16), 1080p square (1:1), or a custom width and height |
 
 ---
 
@@ -186,16 +212,16 @@ When it's on, recording the video is usually the slowest step. The default setti
 
 ## 4. Outputs
 
-All files are written to the workflow's results folder (`ECOSCOPE_WORKFLOWS_RESULTS`).
+All files are written to the workflow's results folder (`ECOSCOPE_WORKFLOWS_RESULTS`). On ecoscope-web this is cloud storage; the video is recorded locally and uploaded there.
 
 | File | Description |
 |------|-------------|
-| `animated_map.html` | The interactive animated 3D map, also shown on the dashboard as **Subject movements** |
+| `animated_map.html` | The interactive animated 3D map, shown on the dashboard as **Subject movements** |
 | `animation.mp4` | H.264 video of the animation. Only written when **Export video** is on. |
 | `relocations_<hash>.geoparquet` | Cleaned GPS fixes |
 | `trajectories_<hash>.geoparquet` | Trajectory segments after the segment filter |
 
-The dashboard shows the **Subject movements** map along with the workflow name, description and time range.
+The dashboard shows the **Subject movements** map with the workflow name, description and time range. Its **Files** section lists `animated_map.html` and, when exported, `animation.mp4`.
 
 ---
 
@@ -203,11 +229,26 @@ The dashboard shows the **Subject movements** map along with the workflow name, 
 
 | Symptom | Likely cause |
 |---------|--------------|
-| No tracks appear | The subject group name doesn't match EarthRanger exactly, or the group has no fixes in the time range |
+| No tracks appear | The subject group has no fixes in the time range, or the wrong group or data source was picked |
 | A track is broken into disconnected pieces | The Trajectory Segment Filter is dropping segments as noise; loosen its limits if your data has long gaps or unusual speeds |
-| No `animation.mp4` in the results | Video export is off by default. Turn on **Video Export → Export video** (under the advanced settings) and run again. |
-| Trails float above or sink into the terrain | Adjust **Terrain → Terrain Sampling → Offset**. If you changed **Terrain Exaggeration**, the trails are re-draped to match automatically. |
+| No `animation.mp4` in the results | Video export is off by default. Turn on **Video Export → Export video** and run again. |
+| The map plays with a fixed view, not my camera | Paste the Camera panel's settings into **Animation → Camera** and run again. On the map, **Preview camera while playing** turns off when you move the map; turn it back on in the Camera panel. |
+| Trails float above or sink into the terrain | Change **Terrain → Terrain Sampling → Track height**: lower its Height, or pick **Above the 3D terrain** to keep tracks on the surface as drawn |
 | The run takes a long time | A wide time range, a large group, or a long/high-resolution video. Turn video export off, or try 720p and a shorter duration first. |
-| The 3D model doesn't appear | Check the **Marker icon** setting. For a custom model, the GLB URL or file must be reachable from the machine running the workflow. |
+| The 3D animal doesn't appear | Check the **Marker icon** setting. The model loads from GitHub, so the viewer needs internet access; a dot is shown if it can't load. |
 
 More in the [Troubleshooting guide](https://wildlife-dynamics.github.io/animate-subject-tracks/troubleshooting.html).
+
+---
+
+## Development
+
+- **Recompile** after changing `spec.yaml`:
+  ```
+  pixi run --manifest-path pixi.toml --locked bash -c "./dev/recompile.sh --update"
+  ```
+- **Test** with fake data (four collars in the Maasai Mara; no EarthRanger needed):
+  ```
+  bash dev/pytest-cli.sh animate_tracks --all
+  ```
+  The test cases are in `test-cases.yaml`. The fake observations in `dev/mock-io/` are made by `dev/make_mock_observations.py`.

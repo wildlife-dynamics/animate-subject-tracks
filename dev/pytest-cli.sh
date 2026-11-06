@@ -150,7 +150,13 @@ run_single_test_case() {
     # Mock IO: serve the fake observations in dev/mock-io instead of the
     # platform's built-in example (which lacks the subjectsource columns).
     mock_obs="${repo_root}/dev/mock-io/get-subjectgroup-observations.example-return.parquet"
-    if [ -f "$mock_obs" ]; then
+    if [ "$use_mock_io" = "true" ]; then
+        if [ ! -f "$mock_obs" ]; then
+            # Without it the platform's own example is used, which lacks the subjectsource columns
+            # this workflow reads, and the run fails at subject_reloc with a KeyError.
+            echo "✗ $test_case — mock data missing: $mock_obs (regenerate it with dev/make_mock_observations.py)"
+            return 1
+        fi
         command -v cygpath > /dev/null 2>&1 && mock_obs=$(cygpath -m "$mock_obs")
         export WT_TASK_MOCK_IO__ECOSCOPE_PLATFORM_TASKS_IO_GET_SUBJECTGROUP_OBSERVATIONS="$mock_obs"
     fi
