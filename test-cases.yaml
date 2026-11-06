@@ -35,7 +35,7 @@ mara-defaults:
 
 mara-place-names-video:
   name: Mara place names and video
-  description: Same data with place names on, a fly-around camera and a short video export.
+  description: Same data with place names on, Jake's pasted fly-around camera (map and video) and a short video export.
   mock_io: true
   params:
     workflow_details:
@@ -61,9 +61,11 @@ mara-place-names-video:
       labels: true
     export_video_toggle:
       enabled: true
-    create_animation:
+    video_camera:
       camera_settings:
-        type_: fly_around
+        type_: settings
+        settings: '{"type_": "fly_around", "fly_frac": 0.25, "rounds": 1}'
+    create_animation:
       duration:
         auto: false
         seconds: 8

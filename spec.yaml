@@ -13,7 +13,7 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-mep
-    version: "1.10.8.*"
+    version: "1.10.9.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: pydeck
@@ -43,12 +43,11 @@ rjsf-overrides:
           depends_on: properties.er_client_name.properties.data_source.properties.name
     convert_to_trajs.description: Clean the tracks before animating by removing segments that are too long, too short, too slow or too fast to be real movement, such as GPS jumps.
     Terrain.properties.terrain_exaggeration.description: Control how strongly hills and valleys are raised on the 3D terrain. Increase it to make relief easier to see in flat landscapes.
-    Terrain.properties.terrain_sampling.description: Control how tracks are draped onto the 3D terrain so they sit on the ground surface rather than floating above it or disappearing below it.
+    Terrain.properties.terrain_sampling.description: Choose where tracks are drawn - on the ground, a set height above it, at each fix's recorded altitude, or a set height above the 3D terrain as drawn on the map - so they sit on the surface rather than floating above it or disappearing below it.
     Animation.properties.trips_animation.description: Choose the marker shown at each subject's current position as its track plays.
     Animation.properties.create_controls.description: Choose which playback controls appear on the interactive map, such as play/pause, the time slider and speed buttons, and where they sit.
     Animation.properties.timeline_animation.description: Set how long the animation takes to play from the first location to the last.
-    Animation.properties.timeline_animation.properties.fps_limit.description: Maximum number of times per second the interactive map redraws while playing. Higher values look smoother but need a faster computer; lower values reduce load on slower machines.
-    Terrain.properties.terrain_layer.description: Choose the basemap imagery draped over the 3D terrain.
+    Terrain.properties.terrain_layer.description: Choose the basemap imagery draped over the 3D terrain, its colour look and an optional vignette.
     Terrain.properties.terrain_layer.properties.texture.title: Basemap
     Terrain.properties.terrain_layer.properties.texture.description: Map imagery draped over the terrain in the interactive map and the video.
     Terrain.properties.terrain_layer.properties.texture.default: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -61,20 +60,24 @@ rjsf-overrides:
         title: Roadmap
       - const: "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}"
         title: USGS Hillshade
-    Video Export.properties.create_animation.description: Choose how the camera moves, how long the video runs and its resolution.
+    Animation.properties.video_camera.description: >-
+      How the camera moves while the tracks play. The interactive map follows this camera, and so does the video
+      when Export video is on. Design one in the map's Camera panel, then paste its settings here and re-run.
     # The video camera comes only from the Camera panel's settings (pasted or the downloaded file) for now;
     # the default is a fixed view of the whole scene.
-    Video Export.properties.create_animation.properties.camera_settings.anyOf:
+    Animation.properties.video_camera.properties.camera_settings.anyOf:
       - $ref: "#/$defs/CameraFromSettings"
-    Video Export.properties.create_animation.properties.camera_settings.default:
+    Animation.properties.video_camera.properties.camera_settings.default:
       type_: settings
       settings: '{"type_": "fixed"}'
-    Video Export.properties.create_animation.properties.camera_settings.description: >-
+    Animation.properties.video_camera.properties.camera_settings.description: >-
       Camera designed in the interactive map's Camera panel: paste the copied settings, or give the path of the
-      downloaded settings file. The default is a fixed view of the whole scene.
+      downloaded settings file, then re-run. The default is a fixed view of the whole scene.
+    Video Export.properties.create_animation.description: Choose how long the video runs and its resolution. The camera is set in Camera, which the interactive map follows too.
     Video Export.properties.export_video_toggle.properties.enabled.title: Export video
     Video Export.properties.export_video_toggle.properties.enabled.description: Off by default. Turn on to also render the animation as an MP4 video. Exporting a video makes the workflow take longer to run.
     Video Export.properties.export_video_toggle.properties.enabled.default: false
+    Video Export.properties.export_video_toggle.properties.enabled.ecoscope:advanced: false
     # Viewing angle of the map (ext_ste ships these with placeholder descriptions)
     Map Zoom & Extent.properties.trips_view_state.properties.pitch.description: Tilt of the map in degrees. 0 looks straight down; higher values tilt the view towards the horizon for a 3D look at the terrain. The video cameras use this tilt too.
     Map Zoom & Extent.properties.trips_view_state.properties.pitch.default: 45
@@ -208,6 +211,7 @@ workflow:
         partial:
           elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
           elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
+          densify_m: 150
 
       - name: Basemap
         id: terrain_layer
@@ -220,23 +224,9 @@ workflow:
           # texture (the basemap draped over the terrain) is user-selectable; options are set in rjsf-overrides
           elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
           imagery_max_zoom: 18
-
-  - name: Configure Basemap URLs
-    id: custom_basemap_urls
-    task: set_basemap_urls
-    partial:
-      elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
-      texture: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-
-  # this can also be optional to allow user to decide which basemap option they would be comfortable with
-  - name: Configure basemap
-    id: basemap_option
-    task: set_basemap_option
-    partial:
-      basemap:
-        preset: default
-        elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
-        tile_urls: ${{ workflow.custom_basemap_urls.return }}
+          imagery_look: natural
+          vignette: 0.25
+          mesh_max_error: 1
 
   - name: Ensure trajs are epsg 4326 
     id: ensure_wgs 
@@ -332,6 +322,12 @@ workflow:
         task: create_timeline_animation
         partial:
           controls: ${{ workflow.create_controls.return }}
+          fps_limit: 60
+    
+      # One camera for both the map's Camera panel preview and the exported video.
+      - name: Camera
+        id: video_camera
+        task: set_video_camera
 
   - name: Create trips layer
     id: trips_layer 
@@ -371,6 +367,7 @@ workflow:
     id: draw_animation
     task: draw_animated_map
     partial:
+      camera: ${{ workflow.video_camera.return }}
       fit_view: true
       geo_layers: ${{ workflow.animate_trips.return }}
       tile_layers:
@@ -411,11 +408,10 @@ workflow:
             - any_dependency_skipped
         partial:
           html_path: ${{ workflow.export_video_toggle.return }}
+          camera_settings: ${{ workflow.video_camera.return }}
           output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
           out_path: "animation.mp4"
           fps: 30
-          # start_frac: 0
-          # end_frac: 1
           verbose: true
           quality:
             capture_format: "jpeg"
@@ -443,6 +439,23 @@ workflow:
       title: "Subject movements"
       data: ${{ workflow.map_urls.return }}
 
+  # Files section of the dashboard: the animated map, and the video when Export video is on.
+  - name: Animated map file
+    id: map_files
+    task: create_files_single_view
+    partial:
+      files: ${{ workflow.map_urls.return }}
+
+  # Never skipped: with video export off the video step is skipped, and this falls back to no file.
+  - name: Video file
+    id: video_files
+    task: create_files_single_view
+    skipif:
+      conditions:
+        - never
+    partial:
+      files: ${{ workflow.create_animation.return }}
+
   - name: Generate Dashboard
     id: animate_dashboard
     task: gather_dashboard
@@ -452,3 +465,6 @@ workflow:
         - ${{ workflow.animated_map_widget.return }}
       time_range: ${{ workflow.time_range.return }}
       groupers: ${{ workflow.groupers.return }}
+      files:
+        - ${{ workflow.map_files.return }}
+        - ${{ workflow.video_files.return }}

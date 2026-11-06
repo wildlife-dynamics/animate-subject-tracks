@@ -33,7 +33,7 @@ run_cmd dot -c
 
 echo "recompiling spec.yaml with flags '--clobber ${flags}'"
 
-run_cmd ecoscope-workflows compile --spec spec.yaml --clobber ${flags}
+run_cmd wt-compiler compile --spec spec.yaml --clobber ${flags}
 compile_exit=$?
 
 exit $compile_exit
