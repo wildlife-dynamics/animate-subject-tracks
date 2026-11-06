@@ -58,13 +58,6 @@
           ],
           "default": null,
           "title": "Timezone"
-        },
-        "time_format": {
-          "default": "%d %b %Y %H:%M:%S",
-          "title": "Time Format",
-          "type": "string",
-          "description": "The time format",
-          "ecoscope:advanced": true
         }
       },
       "required": [
@@ -371,6 +364,22 @@
           },
           "title": "Duration",
           "description": "Video duration. 'auto' uses the animation's own playback length (duration_s).",
+          "ecoscope:advanced": true
+        },
+        "resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PresetResolution"
+            },
+            {
+              "$ref": "#/$defs/CustomResolution"
+            }
+          ],
+          "default": {
+            "preset": "720p"
+          },
+          "title": "Resolution",
+          "description": "Output video resolution: a landscape preset (720p/1080p/4K), vertical 9:16 or square 1:1 for social media, or 'custom' width/height.",
           "ecoscope:advanced": true
         },
         "overlays": {
@@ -1514,6 +1523,36 @@
       "title": "Subject tour",
       "type": "object"
     },
+    "CustomResolution": {
+      "description": "Output video resolution at an exact width/height.",
+      "properties": {
+        "preset": {
+          "const": "custom",
+          "default": "custom",
+          "enum": [
+            "custom"
+          ],
+          "title": "Resolution",
+          "type": "string"
+        },
+        "width": {
+          "default": 1280,
+          "description": "Custom video width in pixels.",
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "integer"
+        },
+        "height": {
+          "default": 720,
+          "description": "Custom video height in pixels.",
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "integer"
+        }
+      },
+      "title": "Custom",
+      "type": "object"
+    },
     "DurationConfig": {
       "properties": {
         "auto": {
@@ -1531,6 +1570,27 @@
         }
       },
       "title": "DurationConfig",
+      "type": "object"
+    },
+    "PresetResolution": {
+      "description": "Output video resolution from a common preset.",
+      "properties": {
+        "preset": {
+          "default": "720p",
+          "description": "Common output video resolution preset: landscape 16:9 (720p, 1080p, 4k), vertical 9:16 for phone stories and reels (720p-vertical, 1080p-vertical) or square 1:1 (1080p-square).",
+          "enum": [
+            "720p",
+            "1080p",
+            "4k",
+            "720p-vertical",
+            "1080p-vertical",
+            "1080p-square"
+          ],
+          "title": "Resolution",
+          "type": "string"
+        }
+      },
+      "title": "Preset",
       "type": "object"
     },
     "VideoOverlays": {
@@ -1600,8 +1660,7 @@
       "ui:order": [
         "since",
         "until",
-        "timezone",
-        "time_format"
+        "timezone"
       ]
     },
     "terrain_layer": {
@@ -1626,6 +1685,7 @@
     "create_animation": {
       "ui:order": [
         "duration",
+        "resolution",
         "overlays"
       ]
     },

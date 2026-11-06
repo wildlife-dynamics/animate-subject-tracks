@@ -50,12 +50,12 @@
 
     <div class="error-block">
       <p class="symptom">The terrain or satellite imagery is blank</p>
-      <p>Terrain elevation (AWS Terrarium) and imagery (Esri World Imagery) tiles are fetched live, by the workflow while it runs and by the browser when you open the map. Check that the machine, and anyone viewing <code>animated_map.html</code>, has internet access and can reach <code>s3.amazonaws.com</code> and <code>server.arcgisonline.com</code>.</p>
+      <p>Terrain elevation (AWS Terrarium) and basemap (Esri ArcGIS Online) tiles are fetched live, by the workflow while it runs and by the browser when you open the map. The map's controls load from <code>cdn.jsdelivr.net</code> and <code>unpkg.com</code>, and 3D animals from <code>raw.githubusercontent.com</code>. Check that the machine, and anyone viewing <code>animated_map.html</code>, has internet access and can reach those hosts as well as <code>s3.amazonaws.com</code> and <code>server.arcgisonline.com</code>.</p>
     </div>
 
     <div class="error-block">
       <p class="symptom">Trails float above the terrain or disappear into it</p>
-      <p>Adjust <a href="user-guide.html#terrain-sampling">Terrain Sampling &rarr; Offset</a> (default 30 m above the ground). If elevation tiles couldn't be read during the run, every track point is placed at the constant <strong>Ground Elevation</strong> (default 1000 m), which won't match the real terrain; re-run once the tiles are reachable. Changing <strong>Terrain Exaggeration</strong> re-drapes the trails to match automatically.</p>
+      <p>Change <a href="user-guide.html#terrain-sampling">Terrain Sampling &rarr; Track height</a>: lower the <strong>Height</strong> (default 30 m above the ground), or pick <strong>Above the 3D terrain</strong>, which keeps tracks on the surface exactly as it is drawn at every zoom. If you picked <strong>Recorded altitude</strong> and your fixes have none, they sit the set height above the ground. If elevation tiles couldn't be read during the run, every track point is placed on a constant 1000 m ground, which won't match the real terrain; re-run once the tiles are reachable. Changing <strong>Terrain Exaggeration</strong> raises the trails to match automatically.</p>
     </div>
 
     <div class="error-block">
@@ -64,8 +64,20 @@
     </div>
 
     <div class="error-block">
-      <p class="symptom">The 3D model marker doesn't appear, or faces the wrong way</p>
-      <p>Check the <a href="user-guide.html#marker">Marker icon</a> setting. For a custom model, the GLB URL or file must be reachable from the machine running the workflow. If the model faces sideways, adjust <strong>Yaw Offset</strong>; if it is nose-up or nose-down, adjust <strong>Model Pitch</strong>. If it spins or tips while the subject is stationary, raise <strong>Min Move M</strong> or leave <strong>Terrain Pitch</strong> off.</p>
+      <p class="symptom">The 3D animal doesn't appear</p>
+      <p>Check the <a href="user-guide.html#marker">Marker icon</a> setting. The models load from GitHub (<code>raw.githubusercontent.com</code>) when the map opens, so the viewer needs internet access; if a model can't load, a dot is drawn instead. A 3D animal is small when zoomed out; raise its <strong>Size</strong> or zoom in.</p>
+    </div>
+
+    <h2>Camera</h2>
+
+    <div class="error-block">
+      <p class="symptom">The map plays with a fixed view, not the camera I designed</p>
+      <p>A camera designed in the map's Camera panel only applies once its settings are in the workflow: click <strong>Copy settings</strong> (or <strong>Download</strong>), paste them into <a href="user-guide.html#camera">Animation &rarr; Camera</a>, and run again. On the map, <strong>Preview camera while playing</strong> turns off as soon as you move the map; turn it back on in the Camera panel to see the camera again.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom">Camera settings are rejected</p>
+      <p>Paste the settings exactly as the Camera panel copies them (a JSON object starting with <code>{"type_": ...}</code>), or give the path of the <code>.json</code> file it downloads. Settings from older versions that use removed cameras (Static, Orbit, Fit everything so far, Event spotlight) are rejected; design the camera again in the Camera panel.</p>
     </div>
 
     <h2>Video</h2>
@@ -92,7 +104,12 @@
 
     <div class="error-block">
       <p class="symptom">No outputs written / can't find results</p>
-      <p>All outputs are written to the directory specified by the <code>ECOSCOPE_WORKFLOWS_RESULTS</code> environment variable. Confirm it's set and points to a directory the workflow process can write to. The video is saved there as <code>animation.mp4</code>; it isn't shown on the dashboard.</p>
+      <p>All outputs are written to the directory specified by the <code>ECOSCOPE_WORKFLOWS_RESULTS</code> environment variable. Confirm it's set and points to a directory the workflow process can write to. The video is saved there as <code>animation.mp4</code>, and the dashboard's <strong>Files</strong> section lists it alongside the map.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom"><code>ffmpeg failed</code> &hellip; <code>Error opening output file file://D:/...</code> (Windows)</p>
+      <p>Versions of the video step before <code>ecoscope-workflows-ext-mep</code> 1.11.0 passed the results folder to ffmpeg as a <code>file://</code> URL, which ffmpeg can't open on Windows. Use a workflow version built on ext-mep 1.11.0 or later.</p>
     </div>
 
     <h2>Contributing &amp; CI</h2>
@@ -112,6 +129,21 @@
     <div class="error-block">
       <p class="symptom"><code>VERSION.yaml (...) must be greater than main branch (...)</code></p>
       <p>Bump <code>MAJ</code>/<code>MIN</code>/<code>PATCH</code> in <code>ecoscope-workflows-animate-tracks-workflow/VERSION.yaml</code> so it's strictly greater than the version on <code>main</code> before opening or updating a PR.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom"><code>unknown environment 'compile'</code>, or <code>No module named ruff</code> while recompiling</p>
+      <p><code>dev/recompile.sh</code> runs the compiler in the <code>compile</code> environment defined in the root <code>pixi.toml</code>, which pins Python 3.12 and conda <code>ruff</code> below 0.17 (later conda builds don't include the Python module the compiler runs). Make sure your branch has that <code>pixi.toml</code> and its <code>pixi.lock</code>.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom"><code>Lock-file version 7 is newer than supported</code> in CI</p>
+      <p>CI runs pixi 0.80.0, which reads version-7 lock files. If you change the CI workflows' <code>pixi-version</code>, keep it at 0.80.0 or later: older pixi can't read the lock file or the generated package's <code>pixi.toml</code>.</p>
+    </div>
+
+    <div class="error-block">
+      <p class="symptom"><code>Task instance 'subject_reloc' raised KeyError ... extra__subjectsource__id ... not in index</code> in tests</p>
+      <p>The test cases use fake observations, <code>dev/mock-io/get-subjectgroup-observations.example-return.parquet</code>. Without that file the platform's own example data is used, which lacks columns this workflow reads. Regenerate it with <code>python dev/make_mock_observations.py</code> and commit it; <code>dev/pytest-cli.sh</code> stops with a message when it's missing.</p>
     </div>
 
     <div class="error-block">

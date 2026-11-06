@@ -22,23 +22,23 @@
 
   <main>
     <h1>Animate Subject Tracks Workflow &mdash; User Guide</h1>
-    <p class="lede">This guide walks you through loading, configuring, and running the Animate Subject Tracks Workflow, which turns an EarthRanger subject group's GPS history into an animated 3D map and an MP4 video.</p>
+    <p class="lede">This guide walks you through loading, configuring, and running the Animate Subject Tracks Workflow, which turns an EarthRanger subject group's GPS history into an animated 3D map, and optionally an MP4 video.</p>
 
     <h2>What it produces</h2>
     <ul>
-      <li>An <strong>interactive animated 3D map</strong> (<code>animated_map.html</code>) with a playback bar and a legend of subject names</li>
-      <li>An <strong>MP4 video</strong> (<code>animation.mp4</code>) of the same animation</li>
+      <li>An <strong>interactive animated 3D map</strong> (<code>animated_map.html</code>) with a playback bar, map buttons (zoom, compass, reset view, fullscreen), a legend of subject names, and a <strong>Camera panel</strong> for designing how the camera moves</li>
+      <li>An optional <strong>MP4 video</strong> (<code>animation.mp4</code>) of the same animation, recorded with the same camera the map plays with. Video export is off by default.</li>
       <li><strong>GeoParquet files</strong> of the cleaned relocations and trajectories</li>
-      <li>A <strong>dashboard</strong> showing the animated map</li>
+      <li>A <strong>dashboard</strong> showing the animated map, with a <strong>Files</strong> section for downloading the map and the video</li>
     </ul>
 
     <h2>Requirements</h2>
     <ul>
       <li>An <strong>EarthRanger connection</strong> configured in the workflow runner</li>
-      <li>The name of a <strong>subject group</strong> in EarthRanger, e.g. <code>Elephants</code></li>
-      <li><strong>Internet access</strong> for terrain elevation and satellite imagery tiles</li>
+      <li>A <strong>subject group</strong> in EarthRanger, e.g. <code>Elephants</code></li>
+      <li><strong>Internet access</strong> while the workflow runs and while you view the map, for terrain elevation and basemap imagery tiles</li>
     </ul>
-    <p>Longer time ranges and larger subject groups take longer to fetch and to record as video. For a first run, a range of a few days to a few weeks works well.</p>
+    <p>Longer time ranges and larger subject groups take longer to fetch and, if video export is on, to record as video. For a first run, a range of a few days to a few weeks works well.</p>
 
     <h2 id="load">1. Load the Workflow</h2>
     <p>In the workflow runner, go to <strong>Workflow Templates</strong> and click <strong>Add Workflow Template</strong>. Paste this repository's URL into the <strong>Github Link</strong> field, then click <strong>Add Template</strong>:</p>
@@ -100,25 +100,48 @@
     <table>
       <thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td>Exaggeration</td><td><code>1.0</code></td><td>Vertical scale of the 3D terrain. <code>1.0</code> is true scale; <code>2.0</code> doubles apparent heights, which helps on flat landscapes.</td></tr>
+        <tr><td>Exaggeration</td><td><code>1.0</code></td><td>Vertical scale of the 3D terrain. <code>1.0</code> is true scale; <code>2.0</code> doubles apparent heights, which helps on flat landscapes. The tracks are raised to match.</td></tr>
       </tbody>
     </table>
 
     <h3 id="terrain-sampling">Terrain Sampling <em>(advanced)</em></h3>
+    <p><strong>Track height</strong> sets where the tracks are drawn. The choices follow Google Maps 3D's altitude modes, and each shows only its own setting:</p>
     <table>
-      <thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead>
+      <thead><tr><th>Option</th><th>Setting</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td>Offset</td><td><code>30</code> m</td><td>Height added above the ground at every track point, so trails sit on top of the terrain rather than inside it</td></tr>
-        <tr><td>Ground Elevation</td><td><code>1000</code> m</td><td>Constant ground height used only if elevation tiles can't be read</td></tr>
+        <tr><td>Above the ground <em>(default)</em></td><td>Height <code>30</code> m</td><td>Tracks float a set height above the ground</td></tr>
+        <tr><td>On the ground</td><td>&mdash;</td><td>Tracks lie on the ground; any recorded altitude is ignored</td></tr>
+        <tr><td>Recorded altitude (where available)</td><td>Height without an altitude <code>30</code> m</td><td>Each fix at its recorded altitude above sea level. Fixes without one (usual for EarthRanger data) sit the set height above the ground instead of at sea level.</td></tr>
+        <tr><td>Above the 3D terrain</td><td>Height <code>30</code> m</td><td>A set height above the terrain <em>as drawn on the map</em>, so tracks, markers and labels stay on the surface at every zoom</td></tr>
       </tbody>
     </table>
+    <p>Tracks also get an extra point every 150 m, so lines follow ridges and valleys between fixes instead of cutting through hills.</p>
 
-    <h3 id="map-zoom">Map Zoom &amp; Extent <em>(advanced)</em></h3>
-    <p>The map is automatically centred and zoomed to fit every track. These two fields set the viewing angle, which the video cameras also use.</p>
+    <h3 id="basemap">Basemap</h3>
     <table>
       <thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td>Pitch</td><td><code>0</code></td><td>Tilt in degrees (0–90). <code>0</code> looks straight down; higher values tilt towards the horizon for a 3D view.</td></tr>
+        <tr><td>Basemap</td><td>Satellite</td><td>Map imagery draped over the 3D terrain, in both the interactive map and the video</td></tr>
+        <tr><td>Place names</td><td>Off</td><td>Adds place names and boundaries (Esri World Boundaries and Places) over the basemap</td></tr>
+      </tbody>
+    </table>
+    <table>
+      <thead><tr><th>Basemap option</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>Satellite <em>(default)</em></td><td>Esri World Imagery aerial and satellite photos, sharp to about 0.6 m a pixel when zoomed in</td></tr>
+        <tr><td>Terrain</td><td>Esri World Topographic Map, with contours, roads and place names</td></tr>
+        <tr><td>Roadmap</td><td>Esri World Street Map</td></tr>
+        <tr><td>USGS Hillshade</td><td>Esri World Hillshade, a grey shaded-relief map that emphasises landforms</td></tr>
+      </tbody>
+    </table>
+    <p>The basemap is given a natural colour look (slightly richer and warmer) and a soft vignette. Tracks and markers keep the colours shown in the legend.</p>
+
+    <h3 id="map-zoom">Map Zoom &amp; Extent <em>(advanced)</em></h3>
+    <p>The map opens centred and zoomed to fit every track. These two fields set the viewing angle, which the cameras also use.</p>
+    <table>
+      <thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>Pitch</td><td><code>45</code></td><td>Tilt in degrees (0–90). <code>0</code> looks straight down; higher values tilt towards the horizon for a 3D view.</td></tr>
         <tr><td>Bearing</td><td><code>0</code></td><td>Rotation in degrees clockwise from north (&minus;180 to 180). <code>90</code> puts east at the top.</td></tr>
       </tbody>
     </table>
@@ -129,63 +152,90 @@
       <thead><tr><th>Option</th><th>Description</th></tr></thead>
       <tbody>
         <tr><td>Dot <em>(default)</em></td><td>A flat circle in the subject's colour with a white outline</td></tr>
-        <tr><td>3D animal</td><td>A ready-tuned 3D model: elephant, giraffe, cheetah, leopard or lion</td></tr>
-        <tr><td>3D model (custom)</td><td>Your own glTF/GLB model (URL or file path), with controls for size, heading and tilt</td></tr>
-        <tr><td>None</td><td>No marker; only the trails are drawn</td></tr>
+        <tr><td>3D animal</td><td>A ready-tuned 3D model: elephant, giraffe, cheetah, leopard or lion, coloured by the subject's track and lit by the sun</td></tr>
       </tbody>
     </table>
 
-    <h3 id="controls">Create Controls <em>(advanced)</em></h3>
-    <p>Sets which parts of the playback bar appear on the interactive map: play/pause, restart, time slider, playback clock, data time, speed button (0.5&times;, 1&times;, 2&times;, 4&times;), and whether the bar sits at the <strong>bottom</strong> or <strong>top</strong>. All are shown by default. <strong>Time Format</strong> shows the data time as a full date-time, a date (default), or time elapsed since the start.</p>
-
-    <h3 id="timeline">Create Timeline Animation <em>(advanced)</em></h3>
+    <h3 id="controls">Playback Control <em>(advanced)</em></h3>
     <table>
       <thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td>Duration S</td><td><code>30</code> s</td><td>How long playback takes from the first location to the last. The video uses the same length by default.</td></tr>
-        <tr><td>Auto Rotate Speed</td><td><code>0</code></td><td>Slowly rotates the map while it plays, in degrees per second. <code>0</code> is off; negative values rotate counter-clockwise.</td></tr>
+        <tr><td>Position</td><td>Bottom</td><td>Whether the playback bar sits at the bottom or top of the map</td></tr>
+        <tr><td>Show Camera</td><td>On</td><td>The camera button on the playback bar, which opens the Camera panel</td></tr>
+        <tr><td>Show map buttons</td><td>On</td><td>Zoom in/out, compass, back to the opening view, fullscreen, and a spinner while the map loads</td></tr>
       </tbody>
     </table>
+    <p>The playback bar always has play/pause, restart, a time slider, the playback clock (e.g. <code>0:12 / 0:30</code>), the data date and time, and a speed button (0.25&times; to 4&times;).</p>
 
-    <h3 id="video">Animation Video <em>(advanced)</em></h3>
+    <h3 id="timeline">Playback Length &amp; Smoothness <em>(advanced)</em></h3>
     <table>
       <thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td>Camera</td><td>Static</td><td>How the video camera moves (see below)</td></tr>
-        <tr><td>Duration</td><td>Auto</td><td><strong>Auto</strong> matches the animation's playback length. Uncheck it to set a fixed length in seconds.</td></tr>
-        <tr><td>Resolution</td><td>720p</td><td>A preset (720p, 1080p, 4K) or a custom width and height in pixels</td></tr>
+        <tr><td>Duration</td><td><code>30</code> s</td><td>How long playback takes from the first location to the last. The video uses the same length by default.</td></tr>
       </tbody>
     </table>
-    <p id="cameras">Every camera frames whatever is animating at the video's size, using the map's pitch and bearing. <strong>Zoom Offset</strong> nudges the automatic framing closer (<code>+1</code> is twice as close) or further away.</p>
+
+    <h3 id="camera">Camera</h3>
     <table>
+      <thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>Camera settings</td><td>A fixed view of the whole scene</td><td>Settings copied from the map's <strong>Camera panel</strong> (or the path of its downloaded <code>.json</code> file). The interactive map plays with this camera, and so does the video.</td></tr>
+      </tbody>
+    </table>
+    <p>To set a camera:</p>
+    <ol>
+      <li>Run the workflow once and open the animated map.</li>
+      <li>Click the <strong>camera button</strong> on the playback bar, pick a camera and adjust it. Press play to preview it; <strong>Use current view</strong> fills in the centre, distance, tilt and heading from wherever you've moved the map.</li>
+      <li>Click <strong>Copy settings</strong> (or <strong>Download</strong>), paste them into <strong>Camera settings</strong>, and run the workflow again.</li>
+    </ol>
+    <table id="cameras">
       <thead><tr><th>Camera</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td>Static</td><td>Holds one view that fits all the tracks for the whole clip</td></tr>
-        <tr><td>Follow the action</td><td>Frames the most recent movement and follows it smoothly. Can rotate to face the direction of travel.</td></tr>
-        <tr><td>Orbit</td><td>Circles the centre of all the tracks</td></tr>
-        <tr><td>Fit everything so far</td><td>Zooms out as needed to keep everything shown so far in frame</td></tr>
-        <tr><td>Cinematic fly-through</td><td>Opens on the whole scene, then follows the action with a slowly turning, tilted camera</td></tr>
-        <tr><td>Keyframes</td><td>Flies through waypoints: follow one subject (blank = the longest-running track), or upload a waypoint file (<code>.json</code>, <code>.geojson</code>, <code>.csv</code> or <code>.tsv</code> with lon/lat columns)</td></tr>
-        <tr><td>Fly to &amp; around</td><td>Flies to a point (blank = the centre of the data), then circles it</td></tr>
+        <tr><td>Fixed view</td><td>Holds one view for the whole clip; blank values frame the whole scene</td></tr>
+        <tr><td>Fly to &amp; around</td><td>Flies in from the whole scene, then circles a point (blank = the centre of the data)</td></tr>
+        <tr><td>Follow a subject</td><td>Stays behind one subject, facing where it is heading (blank = the longest-running track)</td></tr>
+        <tr><td>Subject tour</td><td>Follows each subject in turn, flying between them, with each subject's name shown as the camera reaches it</td></tr>
+        <tr><td>Follow the action</td><td>Frames the recent movement of all subjects (or the ones you list), re-fitting as they move and spread</td></tr>
+        <tr><td>Cinematic fly-through</td><td>Opens on the whole scene, flies in to the action, then follows it with a tilted camera that slowly turns</td></tr>
+        <tr><td>Keyframes</td><td>Flies through waypoints you add in the panel, upload as a file (<code>.json</code>, <code>.geojson</code>, <code>.csv</code> or <code>.tsv</code> with lon/lat), or derive from a subject's track</td></tr>
+      </tbody>
+    </table>
+    <p>The following cameras (Follow a subject, Subject tour, Follow the action, Cinematic fly-through) move smoothly and also offer <strong>Lead room</strong> (space ahead of moving subjects), <strong>Zoom with the action</strong> (in while subjects rest, out while they travel fast) and <strong>Keep in view over hills</strong> (the camera rises when a ridge would hide what it follows).</p>
+
+    <h3 id="video">Video Export</h3>
+    <p>Exports the animation as an MP4 video. <strong>Video export is off by default</strong>, so only the interactive map is produced.</p>
+    <table>
+      <thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>Export video</td><td>Off</td><td>Turn on to also render the animation as an MP4 video. Recording a video makes the workflow take longer to run.</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Video Settings</strong> <em>(advanced)</em> only apply when <strong>Export video</strong> is on. The video uses the camera set in <a href="#camera">Animation &rarr; Camera</a>.</p>
+    <table>
+      <thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>Duration</td><td>Auto</td><td><strong>Auto</strong> matches the animation's playback length. Uncheck it to set a fixed length in seconds.</td></tr>
+        <tr><td>Overlays</td><td>All on</td><td>The date and time (and which corner it sits in), legend, north arrow, scale bar, title and marker labels</td></tr>
+        <tr><td>Resolution</td><td>720p</td><td>720p, 1080p or 4K landscape, 720p or 1080p vertical (9:16), 1080p square (1:1), or a custom width and height</td></tr>
       </tbody>
     </table>
 
     <h2 id="run">3. Run the Workflow</h2>
-    <p>Click <strong>Submit</strong>. The workflow fetches the observations, cleans them into trajectories, drapes them on the terrain, builds the animated map, then records the video frame by frame in a headless browser.</p>
-    <p>Recording the video is usually the slowest step. The default settings give 900 frames (30 seconds at 30 fps). Higher resolutions and longer durations take proportionally longer.</p>
+    <p>Click <strong>Submit</strong>. The workflow fetches the observations, cleans them into trajectories, drapes them on the terrain and builds the animated map. If <strong>Export video</strong> is on, it then records the video frame by frame in a headless browser; otherwise that step is skipped.</p>
+    <p>When it's on, recording the video is usually the slowest step. The default settings give 900 frames (30 seconds at 30 fps). Higher resolutions and longer durations take proportionally longer.</p>
 
     <h2 id="outputs">4. Outputs</h2>
-    <p>All files are written to the workflow's results folder (<code>ECOSCOPE_WORKFLOWS_RESULTS</code>).</p>
+    <p>All files are written to the workflow's results folder (<code>ECOSCOPE_WORKFLOWS_RESULTS</code>). On ecoscope-web this is cloud storage; the video is recorded locally and uploaded there.</p>
     <table>
       <thead><tr><th>File</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>animated_map.html</code></td><td>The interactive animated 3D map, also shown on the dashboard as <strong>Subject movements</strong></td></tr>
-        <tr><td><code>animation.mp4</code></td><td>H.264 video of the animation</td></tr>
+        <tr><td><code>animated_map.html</code></td><td>The interactive animated 3D map, shown on the dashboard as <strong>Subject movements</strong></td></tr>
+        <tr><td><code>animation.mp4</code></td><td>H.264 video of the animation. Only written when <strong>Export video</strong> is on.</td></tr>
         <tr><td><code>relocations_&lt;hash&gt;.geoparquet</code></td><td>Cleaned GPS fixes</td></tr>
         <tr><td><code>trajectories_&lt;hash&gt;.geoparquet</code></td><td>Trajectory segments after the segment filter</td></tr>
       </tbody>
     </table>
-    <p>The dashboard shows the <strong>Subject movements</strong> map along with the workflow name, description and time range.</p>
+    <p>The dashboard shows the <strong>Subject movements</strong> map with the workflow name, description and time range. Its <strong>Files</strong> section lists <code>animated_map.html</code> and, when exported, <code>animation.mp4</code>.</p>
   </main>
 
   <footer class="site-footer">
