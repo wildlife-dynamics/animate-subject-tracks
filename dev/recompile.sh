@@ -33,7 +33,12 @@ run_cmd dot -c
 
 echo "recompiling spec.yaml with flags '--clobber ${flags}'"
 
-run_cmd wt-compiler compile --spec spec.yaml --clobber ${flags}
+# Package name and results variable as the committed package (and the other workflow repos) use;
+# wt-compiler's defaults would emit wt-animate-tracks-workflow/ reading WT_RESULTS instead.
+run_cmd wt-compiler compile --spec spec.yaml \
+    --pkg-name-prefix=ecoscope-workflows \
+    --results-env-var=ECOSCOPE_WORKFLOWS_RESULTS \
+    --clobber ${flags}
 compile_exit=$?
 
 exit $compile_exit

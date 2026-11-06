@@ -12,3 +12,11 @@ channels = [
 wt-compiler = "==0.10.1"
 graphviz = "*"
 go-yq = "*"
+python = "3.12.*"
+# wt-compiler formats the generated code with `python -m ruff`; conda-forge's ruff ships the
+# importable module only up to 0.16 (0.17 is the binary alone).
+ruff = ">=0.16,<0.17"
+
+# dev/recompile.sh (and CI's recompile job) run the compiler with `pixi -e compile`.
+[environments]
+compile = []
