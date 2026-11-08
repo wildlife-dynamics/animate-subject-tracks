@@ -42,7 +42,7 @@ jobs:
 
       - name: Recompile workflow
         run: |
-          pixi run --manifest-path pixi.toml --locked bash -c "./dev/recompile.sh --update"
+          pixi run --manifest-path pixi.toml --locked bash -c "./dev/recompile.sh --update --variant=gcp"
 
       - name: Check for differences in generated files
         run: |
