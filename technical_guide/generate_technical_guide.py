@@ -410,15 +410,11 @@ def build():
                     c("Optional place names, draped on the terrain (<b>Place names</b>, off by default)"),
                 ],
                 [
-                    c("my-deck-widgets (jsDelivr)"),
-                    c(
-                        code(
-                            "https://cdn.jsdelivr.net/gh/ttemu34/my-deck-widgets@v0.21.0/dist/bundle.js"
-                        )
-                    ),
+                    c("my-deck-widgets v0.22.0"),
+                    c("Embedded in the map HTML (shipped in ecoscope-workflows-ext-mep)"),
                     c(
                         "The map's widgets: playback bar, Camera panel, legend, north arrow, "
-                        "scale bar. Loaded by ecoscope-workflows-ext-mep"
+                        "scale bar. Not fetched from a CDN; the package checks its sha256"
                     ),
                 ],
             ],
@@ -433,11 +429,13 @@ def build():
         h2("2c. Headless Browser"),
         p(
             "Video rendering, which only runs when <b>Export video</b> is on (section 7), "
-            "uses Playwright's Chromium. The renderer uses a Chromium bundled in the "
-            "environment when there is one; if the browser executable is missing it "
-            "runs "
-            + code("playwright install chromium")
-            + " once and retries. "
+            "uses Playwright's Chromium, installed into the environment by the "
+            + code("playwright-chromium-headless-shell")
+            + " package (Chrome for Testing, matched to the Playwright version). The "
+            "renderer never downloads a browser at run time; without that package it "
+            "stops with an error. The capture browser may only fetch the map's own "
+            "sources (basemap and elevation tiles, the deck.gl libraries and the preset "
+            "3D animals); every other request is refused. "
             "Encoding uses the ffmpeg binary bundled with "
             + code("imageio-ffmpeg")
             + "."
@@ -847,9 +845,10 @@ def build():
             + ", so the map and the video always agree. The spec restricts the "
             "<b>Camera settings</b> field to a single option, <b>From Camera panel "
             "settings</b>: the settings copied from the map's Camera panel, pasted into "
-            "the field, or the path of the downloaded "
+            "the field. A downloaded "
             + code(".json")
-            + " file. The default is "
+            + " settings file is only read from a local results folder (never on "
+            "ecoscope-web). The default is "
             + code('{"type_": "fixed"}')
             + ", a fixed view of the whole scene. The settings are validated when the "
             "step runs, so a missing or bad waypoint file fails there rather than part "
@@ -1342,11 +1341,16 @@ def build():
                 ],
                 [
                     c("ecoscope-workflows-ext-mep"),
-                    c("1.11.0.*"),
+                    c("1.11.2.*"),
                     c(
                         "Terrain, trips, animated map, Camera step and video rendering tasks; "
-                        "loads the map widgets (my-deck-widgets v0.21.0) from jsDelivr"
+                        "embeds the map widgets (my-deck-widgets v0.22.0)"
                     ),
+                ],
+                [
+                    c("playwright-chromium-headless-shell"),
+                    c("==1.65.0"),
+                    c("Chromium for the video renderer (no run-time download)"),
                 ],
                 [c("pydeck"), c("0.9.2"), c("deck.gl map generation")],
                 [c("opentelemetry-sdk"), c("&gt;=1.20.0, &lt;2.0.0"), c("Tracing")],
