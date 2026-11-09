@@ -60,7 +60,13 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-mep
-    version: "1.11.0.*"
+    version: "1.11.2.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
+  # The browser the video export captures frames with, locked and scanned like every other dependency
+  # (ext-mep never downloads one at run time). Its version must match conda-forge playwright's.
+  - name: playwright-chromium-headless-shell
+    version: "==1.65.0"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: pydeck
@@ -110,16 +116,16 @@ rjsf-overrides:
     Animation.properties.video_camera.description: >-
       How the camera moves while the tracks play. The interactive map follows this camera, and so does the video
       when Export video is on. Design one in the map's Camera panel, then paste its settings here and re-run.
-    # The video camera comes only from the Camera panel's settings (pasted or the downloaded file) for now;
-    # the default is a fixed view of the whole scene.
+    # The video camera comes only from the Camera panel's settings for now (pasted; a settings file is only
+    # read from a local results folder); the default is a fixed view of the whole scene.
     Animation.properties.video_camera.properties.camera_settings.anyOf:
       - $ref: "#/$defs/CameraFromSettings"
     Animation.properties.video_camera.properties.camera_settings.default:
       type_: settings
       settings: '{"type_": "fixed"}'
     Animation.properties.video_camera.properties.camera_settings.description: >-
-      Camera designed in the interactive map's Camera panel: paste the copied settings, or give the path of the
-      downloaded settings file, then re-run. The default is a fixed view of the whole scene.
+      Camera designed in the interactive map's Camera panel: paste the copied settings here, then re-run. The
+      default is a fixed view of the whole scene.
     Video Export.properties.create_animation.description: Choose how long the video runs and its resolution. The camera is set in Camera, which the interactive map follows too.
     Video Export.properties.export_video_toggle.properties.enabled.title: Export video
     Video Export.properties.export_video_toggle.properties.enabled.description: Off by default. Turn on to also render the animation as an MP4 video. Exporting a video makes the workflow take longer to run.

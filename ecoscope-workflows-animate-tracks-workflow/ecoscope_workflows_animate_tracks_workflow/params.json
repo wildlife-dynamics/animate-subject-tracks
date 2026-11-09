@@ -276,6 +276,7 @@
         "duration": {
           "default": 30.0,
           "exclusiveMinimum": 0.0,
+          "maximum": 600.0,
           "title": "Duration",
           "type": "number",
           "description": "Playback length in seconds (e.g. 30 = the whole timeline plays in 30 seconds).",
@@ -1539,6 +1540,7 @@
           "default": 1280,
           "description": "Custom video width in pixels.",
           "exclusiveMinimum": 0,
+          "maximum": 3840,
           "title": "Width",
           "type": "integer"
         },
@@ -1546,6 +1548,7 @@
           "default": 720,
           "description": "Custom video height in pixels.",
           "exclusiveMinimum": 0,
+          "maximum": 3840,
           "title": "Height",
           "type": "integer"
         }
@@ -1565,6 +1568,7 @@
           "default": 30.0,
           "description": "Video duration in seconds. Only used when 'Auto' is unchecked.",
           "exclusiveMinimum": 0.0,
+          "maximum": 600.0,
           "title": "Duration (seconds)",
           "type": "number"
         }
