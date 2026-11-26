@@ -31,51 +31,49 @@ from ecoscope.platform.tasks.skip import any_is_empty_df as any_is_empty_df
 from ecoscope.platform.tasks.skip import never as never
 from ecoscope.platform.tasks.transformation import convert_crs as convert_crs
 from ecoscope.platform.tasks.transformation import map_columns as map_columns
-from ecoscope_workflows_ext_mep.tasks.animate import animate_layer as animate_layer
-from ecoscope_workflows_ext_mep.tasks.animate import (
+from ecoscope_workflows_ext_custom.tasks.animate import animate_layer as animate_layer
+from ecoscope_workflows_ext_custom.tasks.animate import (
     create_elevation_decoder as create_elevation_decoder,
 )
-from ecoscope_workflows_ext_mep.tasks.animate import (
+from ecoscope_workflows_ext_custom.tasks.animate import (
     create_playback_controls as create_playback_controls,
 )
-from ecoscope_workflows_ext_mep.tasks.animate import (
+from ecoscope_workflows_ext_custom.tasks.animate import (
     create_terrain_layer as create_terrain_layer,
 )
-from ecoscope_workflows_ext_mep.tasks.animate import (
+from ecoscope_workflows_ext_custom.tasks.animate import (
     create_terrain_sampling as create_terrain_sampling,
 )
-from ecoscope_workflows_ext_mep.tasks.animate import (
+from ecoscope_workflows_ext_custom.tasks.animate import (
     create_timeline_animation as create_timeline_animation,
 )
-from ecoscope_workflows_ext_mep.tasks.animate import (
+from ecoscope_workflows_ext_custom.tasks.animate import (
     create_trips_animation as create_trips_animation,
 )
-from ecoscope_workflows_ext_mep.tasks.animate import (
+from ecoscope_workflows_ext_custom.tasks.animate import (
     create_trips_layer as create_trips_layer,
 )
-from ecoscope_workflows_ext_mep.tasks.animate import (
+from ecoscope_workflows_ext_custom.tasks.animate import (
     drape_trips_on_terrain as drape_trips_on_terrain,
 )
-from ecoscope_workflows_ext_mep.tasks.animate import (
+from ecoscope_workflows_ext_custom.tasks.animate import (
     draw_animated_map as draw_animated_map,
 )
-from ecoscope_workflows_ext_mep.tasks.animate import (
+from ecoscope_workflows_ext_custom.tasks.animate import (
     render_video_from_settings as render_video_from_settings,
 )
-from ecoscope_workflows_ext_mep.tasks.animate import (
+from ecoscope_workflows_ext_custom.tasks.animate import (
     set_video_camera as set_video_camera,
 )
-from ecoscope_workflows_ext_mep.tasks.animate import (
+from ecoscope_workflows_ext_custom.tasks.animate import (
     trajectory_to_trips as trajectory_to_trips,
 )
-from ecoscope_workflows_ext_ste.tasks.skip import skip_file as skip_file
-from ecoscope_workflows_ext_ste.tasks.spatial_operations import (
-    compute_view_state_from_gdf as compute_view_state_from_gdf,
+from ecoscope_workflows_ext_custom.tasks.results import (
+    view_state_from_gdf_pydeck as view_state_from_gdf_pydeck,
 )
-from ecoscope_workflows_ext_ste.tasks.spatial_operations import (
-    envelope_gdf as envelope_gdf,
-)
-from ecoscope_workflows_ext_ste.tasks.transformation import (
+from ecoscope_workflows_ext_custom.tasks.skip import maybe_skip_file as maybe_skip_file
+from ecoscope_workflows_ext_custom.tasks.spatial_ops import envelope_gdf as envelope_gdf
+from ecoscope_workflows_ext_custom.tasks.transformation import (
     add_rgba_from_hex as add_rgba_from_hex,
 )
 from wt_contracts import validate as _validate
@@ -356,7 +354,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .partial(
             elevation_data="https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
             elevation_decoder=terrain_exaggeration,
-            densify_m=150,
+            densify=100,
             **(params.get("terrain_sampling") or {}),
         )
         .call()
@@ -377,14 +375,14 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(
             min_zoom=0,
-            max_zoom=15,
+            max_zoom=18,
             wireframe=False,
             elevation_data="https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
             elevation_decoder=terrain_exaggeration,
             imagery_max_zoom=18,
             imagery_look="natural",
             vignette=0.25,
-            mesh_max_error=1,
+            mesh_max_error=2,
             **(params.get("terrain_layer") or {}),
         )
         .call()
@@ -423,11 +421,11 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            min_break_hours=12,
-            min_piece_fixes=5,
+            minimum_gap_hours=5,
+            minimum_piece_fixes=10,
             trajectory_gdf=ensure_wgs,
-            groupby_col="groupby_col",
-            keep_cols=["subject_name", "hex_color"],
+            groupby_column="groupby_col",
+            keep_columns=["subject_name", "hex_color"],
             **(params.get("trajs_trips") or {}),
         )
         .call()
@@ -476,7 +474,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
     )
 
     trips_view_state = (
-        task(compute_view_state_from_gdf)
+        task(view_state_from_gdf_pydeck)
         .validate()
         .set_task_instance_id("trips_view_state")
         .handle_errors()
@@ -534,9 +532,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             show_history=True,
             history_color=[255, 255, 255],
             fade_history=True,
-            history_opacity=0.85,
+            history_opacity=0.8,
             smooth_turning=True,
-            turn_smoothing=2.5,
             curve_paths=False,
             hover_info=False,
             label_column="",
@@ -564,11 +561,12 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             show_restart=True,
             show_scrubber=True,
             show_time=True,
-            time_format="datetime",
+            time_format="date",
             show_speed=True,
             show_clock=True,
             show_hint=False,
             preview_camera=True,
+            show_map_controls=False,
             speeds=[0.25, 0.5, 0.75, 1, 2, 4],
             **(params.get("create_controls") or {}),
         )
@@ -632,7 +630,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             layer_style={
                 "get_timestamps": "timestamps",
                 "get_color": "rgba_color",
-                "get_width": 2.15,
+                "get_width": 1.75,
                 "width_units": "pixels",
                 "width_scale": 1,
                 "width_min_pixels": 1,
@@ -696,7 +694,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             geo_layers=animate_trips,
             tile_layers=[terrain_layer],
             static=False,
-            max_zoom=15,
+            max_zoom=18,
             title=None,
             legend_style={"placement": "bottom-right"},
             view_state=trips_view_state,
@@ -730,7 +728,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
     )
 
     export_video_toggle = (
-        task(skip_file)
+        task(maybe_skip_file)
         .validate()
         .set_task_instance_id("export_video_toggle")
         .handle_errors()
