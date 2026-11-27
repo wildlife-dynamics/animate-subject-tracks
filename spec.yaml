@@ -48,19 +48,11 @@ metadata:
   preview: resources/preview.gif
 requirements:
   - name: ecoscope-platform
-    version: ==2.25.3
+    version: ">=2.40.0,<3.0.0"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-custom
-    version: "0.1.5.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-
-  - name: ecoscope-workflows-ext-ste
-    version: "0.0.32.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-
-  - name: ecoscope-workflows-ext-mep
-    version: "1.11.0.*"
+    version: "0.2.1.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: pydeck
@@ -125,7 +117,7 @@ rjsf-overrides:
     Video Export.properties.export_video_toggle.properties.enabled.description: Off by default. Turn on to also render the animation as an MP4 video. Exporting a video makes the workflow take longer to run.
     Video Export.properties.export_video_toggle.properties.enabled.default: false
     Video Export.properties.export_video_toggle.properties.enabled.ecoscope:advanced: false
-    # Viewing angle of the map (ext_ste ships these with placeholder descriptions)
+    # Viewing angle of the map (worded for this workflow: the video cameras reuse it)
     Map Zoom & Extent.properties.trips_view_state.properties.pitch.description: Tilt of the map in degrees. 0 looks straight down; higher values tilt the view towards the horizon for a 3D look at the terrain. The video cameras use this tilt too.
     Map Zoom & Extent.properties.trips_view_state.properties.pitch.default: 45
     Map Zoom & Extent.properties.trips_view_state.properties.bearing.description: Rotation of the map in degrees clockwise from north. 0 keeps north at the top, 90 puts east at the top, and negative values rotate counter-clockwise. The video cameras use this rotation too.
@@ -260,14 +252,14 @@ workflow:
         partial:
           elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
           elevation_decoder: ${{ workflow.terrain_exaggeration.return }}
-          densify_m: 150
+          densify: 100
 
       - name: Basemap
         id: terrain_layer
         task: create_terrain_layer
         partial:
           min_zoom: 0
-          max_zoom: 15
+          max_zoom: 18
           wireframe: false
           elevation_data: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
           # texture (the basemap draped over the terrain) is user-selectable; options are set in rjsf-overrides
@@ -275,7 +267,7 @@ workflow:
           imagery_max_zoom: 18
           imagery_look: natural
           vignette: 0.25
-          mesh_max_error: 1
+          mesh_max_error: 2
 
   - name: Ensure trajs are epsg 4326 
     id: ensure_wgs 
@@ -288,11 +280,11 @@ workflow:
     id: trajs_trips
     task: trajectory_to_trips
     partial:
-      min_break_hours: 12
-      min_piece_fixes: 5
+      minimum_gap_hours: 5
+      minimum_piece_fixes: 10
       trajectory_gdf: ${{ workflow.ensure_wgs.return }}
-      groupby_col: groupby_col
-      keep_cols: [
+      groupby_column: groupby_col
+      keep_columns: [
         "subject_name",
         "hex_color",
       ]
@@ -309,15 +301,15 @@ workflow:
     description: Calculate the geographic extent of the movement tracks and determine an appropriate zoom level and center point for the map. This ensures that all tracks are visible and well-framed when the map is rendered.
     tasks:
       - name: null
-        id: zoom_to_envelope 
-        task: ecoscope_workflows_ext_ste.tasks.spatial_operations.envelope_gdf
+        id: zoom_to_envelope
+        task: envelope_gdf
         partial:
           expansion_factor: 1.00
           gdf: ${{ workflow.trajs_trips.return }}
-  
+
       - name: null
         id: trips_view_state
-        task: ecoscope_workflows_ext_ste.tasks.spatial_operations.compute_view_state_from_gdf
+        task: view_state_from_gdf_pydeck
         partial:
           max_zoom: 15
           gdf: ${{ workflow.zoom_to_envelope.return }}
@@ -342,10 +334,9 @@ workflow:
           show_history: true
           history_color: [255,255,255]
           fade_history: true
-          history_opacity: 0.85
-          smooth_turning: true 
-          turn_smoothing: 2.50 
-          curve_paths: false 
+          history_opacity: 0.80
+          smooth_turning: true
+          curve_paths: false
           hover_info: false
           label_column: ""
 
@@ -358,11 +349,12 @@ workflow:
           show_restart: true 
           show_scrubber: true 
           show_time: true 
-          time_format: "datetime"
+          time_format: "date"
           show_speed: true
           show_clock: true 
           show_hint: false
           preview_camera: true 
+          show_map_controls: false
           speeds: [0.25,0.5,0.75,1,2,4]
 
 
@@ -387,7 +379,7 @@ workflow:
       layer_style: 
         get_timestamps: timestamps 
         get_color: rgba_color 
-        get_width: 2.15
+        get_width: 1.75
         width_units: pixels 
         width_scale: 1
         width_min_pixels: 1
@@ -422,7 +414,7 @@ workflow:
       tile_layers:
         - ${{ workflow.terrain_layer.return }}
       static: false
-      max_zoom: 15
+      max_zoom: 18
       title: null
       legend_style:
         placement: "bottom-right"
@@ -445,7 +437,7 @@ workflow:
       # returns the map html path, or a skip sentinel when the toggle is off (which skips create_animation)
       - name: Include video?
         id: export_video_toggle
-        task: skip_file
+        task: maybe_skip_file
         partial:
           filename: ${{ workflow.map_urls.return }}
 

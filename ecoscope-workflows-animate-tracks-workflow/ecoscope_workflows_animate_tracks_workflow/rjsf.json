@@ -25,8 +25,8 @@
       "properties": {
         "data_source": {
           "$ref": "#/$defs/EarthRangerConnection",
-          "title": "",
-          "description": "Select one of your configured data sources."
+          "description": "Select one of your configured data sources.",
+          "title": ""
         }
       },
       "required": [
@@ -39,23 +39,19 @@
       "additionalProperties": false,
       "properties": {
         "since": {
+          "description": "The start time",
           "format": "date-time",
           "title": "Since",
-          "type": "string",
-          "description": "The start time"
+          "type": "string"
         },
         "until": {
+          "description": "The end time",
           "format": "date-time",
           "title": "Until",
-          "type": "string",
-          "description": "The end time"
+          "type": "string"
         },
         "timezone": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/TimezoneInfo"
-            }
-          ],
+          "$ref": "#/$defs/TimezoneInfo",
           "default": null,
           "title": "Timezone"
         }
@@ -97,22 +93,35 @@
       "additionalProperties": false,
       "properties": {
         "trajectory_segment_filter": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/TrajectorySegmentFilter"
-            }
-          ],
+          "$ref": "#/$defs/TrajectorySegmentFilter",
           "default": {
             "min_length_meters": 0.001,
-            "max_length_meters": 100000,
-            "min_time_secs": 1,
-            "max_time_secs": 172800,
+            "max_length_meters": 100000.0,
+            "min_time_secs": 1.0,
+            "max_time_secs": 172800.0,
             "min_speed_kmhr": 0.01,
-            "max_speed_kmhr": 500
+            "max_speed_kmhr": 500.0
           },
-          "title": " ",
           "description": "Filter track data by setting limits on track segment length, duration, and speed. Segments outside these bounds are removed, reducing noise and to focus on meaningful movement patterns.",
-          "ecoscope:advanced": true
+          "ecoscope:advanced": true,
+          "title": " "
+        },
+        "trajectory_segment_filter_overrides": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/TrajectorySegmentFilterOverride"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Use a different segment filter for specific values, e.g. a subject subtype or patrol type. Values without an override use the filter above. Leave empty unless the workflow supports per-type filtering.",
+          "ecoscope:advanced": true,
+          "title": "Filter Overrides"
         }
       },
       "required": [],
@@ -130,11 +139,11 @@
           "properties": {
             "exaggeration": {
               "default": 1.0,
-              "exclusiveMinimum": 0.0,
-              "title": "Exaggeration",
-              "type": "number",
               "description": "Vertical exaggeration factor. 1.0 = true scale, 2.0 = 2x heights.",
-              "ecoscope:advanced": true
+              "ecoscope:advanced": true,
+              "exclusiveMinimum": 0,
+              "title": "Exaggeration",
+              "type": "number"
             }
           },
           "type": "object",
@@ -146,7 +155,22 @@
           "additionalProperties": false,
           "properties": {
             "altitude": {
-              "anyOf": [
+              "default": {
+                "mode": "relative_to_mesh",
+                "height": 1.0
+              },
+              "description": "Where the tracks are drawn: on the 3D terrain as drawn on the map (the default), on the ground from elevation data, a set height above it, or at each fix's recorded altitude.",
+              "discriminator": {
+                "mapping": {
+                  "absolute": "#/$defs/AbsoluteAltitude",
+                  "clamp_to_ground": "#/$defs/ClampToGround",
+                  "relative_to_ground": "#/$defs/RelativeToGround",
+                  "relative_to_mesh": "#/$defs/RelativeToMesh"
+                },
+                "propertyName": "mode"
+              },
+              "ecoscope:advanced": true,
+              "oneOf": [
                 {
                   "$ref": "#/$defs/ClampToGround"
                 },
@@ -160,13 +184,7 @@
                   "$ref": "#/$defs/RelativeToMesh"
                 }
               ],
-              "default": {
-                "mode": "relative_to_ground",
-                "height_m": 30.0
-              },
-              "title": "Track height",
-              "description": "Where the tracks are drawn: on the ground, a set height above it, at each fix's recorded altitude, or a set height above the 3D terrain as drawn on the map.",
-              "ecoscope:advanced": true
+              "title": "Track height"
             }
           },
           "type": "object",
@@ -179,9 +197,9 @@
           "properties": {
             "texture": {
               "default": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+              "description": "Map imagery draped over the terrain in the interactive map and the video.",
               "title": "Basemap",
               "type": "string",
-              "description": "Map imagery draped over the terrain in the interactive map and the video.",
               "oneOf": [
                 {
                   "const": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -203,9 +221,9 @@
             },
             "labels": {
               "default": false,
+              "description": "Show place names and boundaries over the basemap, draped on the terrain (Esri World Boundaries and Places).",
               "title": "Place names",
-              "type": "boolean",
-              "description": "Show place names and boundaries over the basemap, draped on the terrain (Esri World Boundaries and Places)."
+              "type": "boolean"
             }
           },
           "type": "object",
@@ -225,21 +243,21 @@
           "properties": {
             "pitch": {
               "default": 45,
+              "description": "Tilt of the map in degrees. 0 looks straight down; higher values tilt the view towards the horizon for a 3D look at the terrain. The video cameras use this tilt too.",
+              "ecoscope:advanced": true,
               "maximum": 90,
               "minimum": 0,
               "title": "Pitch",
-              "type": "integer",
-              "description": "Tilt of the map in degrees. 0 looks straight down; higher values tilt the view towards the horizon for a 3D look at the terrain. The video cameras use this tilt too.",
-              "ecoscope:advanced": true
+              "type": "integer"
             },
             "bearing": {
               "default": 0,
+              "description": "Rotation of the map in degrees clockwise from north. 0 keeps north at the top, 90 puts east at the top, and negative values rotate counter-clockwise. The video cameras use this rotation too.",
+              "ecoscope:advanced": true,
               "maximum": 180,
               "minimum": -180,
               "title": "Bearing",
-              "type": "integer",
-              "description": "Rotation of the map in degrees clockwise from north. 0 keeps north at the top, 90 puts east at the top, and negative values rotate counter-clockwise. The video cameras use this rotation too.",
-              "ecoscope:advanced": true
+              "type": "integer"
             }
           },
           "required": [],
@@ -257,14 +275,6 @@
           "additionalProperties": false,
           "properties": {
             "head": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/DotMarker"
-                },
-                {
-                  "$ref": "#/$defs/AnimalModelMarker"
-                }
-              ],
               "default": {
                 "marker": "dot",
                 "get_radius": 4.0,
@@ -277,11 +287,26 @@
                 ],
                 "get_line_width": 1.5,
                 "line_width_units": "pixels",
-                "opacity": 1
+                "opacity": 1.0
               },
-              "title": "Marker icon",
               "description": "Marker drawn at each subject's current position: a flat dot or a 3D animal.",
-              "ecoscope:advanced": true
+              "discriminator": {
+                "mapping": {
+                  "dot": "#/$defs/DotMarker",
+                  "model": "#/$defs/ModelMarker"
+                },
+                "propertyName": "marker"
+              },
+              "ecoscope:advanced": true,
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/DotMarker"
+                },
+                {
+                  "$ref": "#/$defs/ModelMarker"
+                }
+              ],
+              "title": "Marker icon"
             }
           },
           "type": "object",
@@ -294,28 +319,21 @@
           "properties": {
             "position": {
               "default": "bottom",
+              "description": "Where the bar sits on the map.",
+              "ecoscope:advanced": true,
               "enum": [
                 "bottom",
                 "top"
               ],
               "title": "Position",
-              "type": "string",
-              "description": "Where the bar sits on the map.",
-              "ecoscope:advanced": true
+              "type": "string"
             },
             "show_camera": {
               "default": true,
-              "title": "Show Camera",
-              "type": "boolean",
               "description": "Camera button: design and preview the video camera, then copy its settings into render_animation.",
-              "ecoscope:advanced": true
-            },
-            "show_map_controls": {
-              "default": true,
-              "title": "Show map buttons",
-              "type": "boolean",
-              "description": "deck.gl's map buttons: zoom in and out, tilt and rotation (click to reset), back to the opening view, fullscreen, and a spinner while the map loads.",
-              "ecoscope:advanced": true
+              "ecoscope:advanced": true,
+              "title": "Show Camera",
+              "type": "boolean"
             }
           },
           "type": "object",
@@ -328,11 +346,12 @@
           "properties": {
             "duration": {
               "default": 30.0,
-              "exclusiveMinimum": 0.0,
+              "description": "Playback length in seconds (e.g. 30 = the whole timeline plays in 30 seconds). At most 600 seconds (10 minutes), the longest video that can be recorded.",
+              "ecoscope:advanced": true,
+              "exclusiveMinimum": 0,
+              "maximum": 600,
               "title": "Duration",
-              "type": "number",
-              "description": "Playback length in seconds (e.g. 30 = the whole timeline plays in 30 seconds).",
-              "ecoscope:advanced": true
+              "type": "number"
             }
           },
           "type": "object",
@@ -344,18 +363,57 @@
           "additionalProperties": false,
           "properties": {
             "camera_settings": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/CameraFromSettings"
-                }
-              ],
               "default": {
                 "type_": "settings",
                 "settings": "{\"type_\": \"fixed\"}"
               },
-              "title": "Camera",
               "description": "Camera designed in the interactive map's Camera panel: paste the copied settings, or give the path of the downloaded settings file, then re-run. The default is a fixed view of the whole scene.",
-              "ecoscope:advanced": true
+              "discriminator": {
+                "mapping": {
+                  "chase": "#/$defs/FollowSubjectCamera",
+                  "cinematic": "#/$defs/CinematicCamera",
+                  "fixed": "#/$defs/FixedCamera",
+                  "fly_around": "#/$defs/FlyAroundCamera",
+                  "follow": "#/$defs/FollowActionCamera",
+                  "keyframes": "#/$defs/KeyframesCamera",
+                  "settings": "#/$defs/CameraFromSettings",
+                  "tour": "#/$defs/SubjectTourCamera"
+                },
+                "propertyName": "type_"
+              },
+              "ecoscope:advanced": true,
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/FixedCamera"
+                },
+                {
+                  "$ref": "#/$defs/FlyAroundCamera"
+                },
+                {
+                  "$ref": "#/$defs/FollowSubjectCamera"
+                },
+                {
+                  "$ref": "#/$defs/SubjectTourCamera"
+                },
+                {
+                  "$ref": "#/$defs/FollowActionCamera"
+                },
+                {
+                  "$ref": "#/$defs/CinematicCamera"
+                },
+                {
+                  "$ref": "#/$defs/KeyframesCamera"
+                },
+                {
+                  "$ref": "#/$defs/CameraFromSettings"
+                }
+              ],
+              "title": "Camera",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/CameraFromSettings"
+                }
+              ]
             }
           },
           "type": "object",
@@ -375,10 +433,10 @@
           "properties": {
             "enabled": {
               "default": false,
-              "title": "Export video",
-              "type": "boolean",
               "description": "Off by default. Turn on to also render the animation as an MP4 video. Exporting a video makes the workflow take longer to run.",
-              "ecoscope:advanced": false
+              "ecoscope:advanced": false,
+              "title": "Export video",
+              "type": "boolean"
             }
           },
           "type": "object",
@@ -389,21 +447,34 @@
           "additionalProperties": false,
           "properties": {
             "duration": {
-              "allOf": [
-                {
-                  "$ref": "#/$defs/DurationConfig"
-                }
-              ],
+              "$ref": "#/$defs/DurationConfig",
               "default": {
                 "auto": true,
                 "seconds": 30.0
               },
-              "title": "Duration",
-              "description": "Video duration. 'auto' uses the animation's own playback length (duration_s).",
-              "ecoscope:advanced": true
+              "description": "Video duration. 'auto' uses the animation's own playback length (duration).",
+              "ecoscope:advanced": true,
+              "title": "Duration"
             },
             "resolution": {
-              "anyOf": [
+              "default": {
+                "preset": "720p"
+              },
+              "description": "Output video resolution: a landscape preset (720p/1080p/4K), vertical 9:16 or square 1:1 for social media, or 'custom' width/height.",
+              "discriminator": {
+                "mapping": {
+                  "1080p": "#/$defs/PresetResolution",
+                  "1080p-square": "#/$defs/PresetResolution",
+                  "1080p-vertical": "#/$defs/PresetResolution",
+                  "4k": "#/$defs/PresetResolution",
+                  "720p": "#/$defs/PresetResolution",
+                  "720p-vertical": "#/$defs/PresetResolution",
+                  "custom": "#/$defs/CustomResolution"
+                },
+                "propertyName": "preset"
+              },
+              "ecoscope:advanced": true,
+              "oneOf": [
                 {
                   "$ref": "#/$defs/PresetResolution"
                 },
@@ -411,19 +482,10 @@
                   "$ref": "#/$defs/CustomResolution"
                 }
               ],
-              "default": {
-                "preset": "720p"
-              },
-              "title": "Resolution",
-              "description": "Output video resolution: a landscape preset (720p/1080p/4K), vertical 9:16 or square 1:1 for social media, or 'custom' width/height.",
-              "ecoscope:advanced": true
+              "title": "Resolution"
             },
             "overlays": {
-              "allOf": [
-                {
-                  "$ref": "#/$defs/VideoOverlays"
-                }
-              ],
+              "$ref": "#/$defs/VideoOverlays",
               "default": {
                 "clock": true,
                 "clock_position": "top-right",
@@ -433,9 +495,9 @@
                 "title": true,
                 "labels": true
               },
-              "title": "Overlays",
               "description": "What the video shows over the map: the date and time, legend, north arrow, scale bar, title and marker labels.",
-              "ecoscope:advanced": true
+              "ecoscope:advanced": true,
+              "title": "Overlays"
             }
           },
           "required": [],
@@ -536,22 +598,37 @@
       "title": "TrajectorySegmentFilter",
       "type": "object"
     },
+    "TrajectorySegmentFilterOverride": {
+      "properties": {
+        "key": {
+          "title": "Value",
+          "type": "string"
+        },
+        "filter": {
+          "$ref": "#/$defs/TrajectorySegmentFilter",
+          "title": "Filter"
+        }
+      },
+      "required": [
+        "key",
+        "filter"
+      ],
+      "title": "TrajectorySegmentFilterOverride",
+      "type": "object"
+    },
     "AbsoluteAltitude": {
       "description": "Each fix's recorded altitude above sea level (Google's ABSOLUTE). Fixes without one, as is usual for\nEarthRanger data, are drawn a set height above the ground instead of at sea level.",
       "properties": {
         "mode": {
           "const": "absolute",
           "default": "absolute",
-          "enum": [
-            "absolute"
-          ],
           "title": "Track height",
           "type": "string"
         },
-        "fallback_height_m": {
+        "fallback_height": {
           "default": 30.0,
           "description": "Metres above the ground for fixes that have no recorded altitude.",
-          "minimum": 0.0,
+          "minimum": 0,
           "title": "Height without an altitude (m)",
           "type": "number"
         }
@@ -565,9 +642,6 @@
         "mode": {
           "const": "clamp_to_ground",
           "default": "clamp_to_ground",
-          "enum": [
-            "clamp_to_ground"
-          ],
           "title": "Track height",
           "type": "string"
         }
@@ -581,16 +655,13 @@
         "mode": {
           "const": "relative_to_ground",
           "default": "relative_to_ground",
-          "enum": [
-            "relative_to_ground"
-          ],
           "title": "Track height",
           "type": "string"
         },
-        "height_m": {
+        "height": {
           "default": 30.0,
           "description": "Metres above the ground the tracks are drawn at.",
-          "minimum": 0.0,
+          "minimum": 0,
           "title": "Height (m)",
           "type": "number"
         }
@@ -599,77 +670,23 @@
       "type": "object"
     },
     "RelativeToMesh": {
-      "description": "A set height above the 3D terrain as drawn on the map (Google's RELATIVE_TO_MESH): tracks stay on the\nrendered surface at every zoom, where elevation-data heights can sit slightly above or below it.",
+      "description": "On the 3D terrain as drawn on the map (Google's RELATIVE_TO_MESH): tracks lie on the rendered surface,\nrising and falling with it at every zoom, and 3D animals stand on it. The default: nothing floats.",
       "properties": {
         "mode": {
           "const": "relative_to_mesh",
           "default": "relative_to_mesh",
-          "enum": [
-            "relative_to_mesh"
-          ],
           "title": "Track height",
           "type": "string"
         },
-        "height_m": {
-          "default": 30.0,
-          "description": "Metres above the ground the tracks are drawn at.",
-          "minimum": 0.0,
+        "height": {
+          "default": 1.0,
+          "description": "Metres above the drawn terrain: about 1 m lies on the ground; more lifts the line clear of it.",
+          "minimum": 0,
           "title": "Height (m)",
           "type": "number"
         }
       },
-      "title": "Above the 3D terrain",
-      "type": "object"
-    },
-    "AnimalModelMarker": {
-      "description": "A ready-tuned 3D animal model: pick the animal, everything else is preset.\n\nDrawn as a ScenegraphLayerDefinition (to_model) with the animal's tuned orientation and size.",
-      "properties": {
-        "marker": {
-          "const": "animal",
-          "default": "animal",
-          "enum": [
-            "animal"
-          ],
-          "title": "Marker icon",
-          "type": "string"
-        },
-        "animal": {
-          "default": "elephant",
-          "description": "Which preset model to show.",
-          "enum": [
-            "elephant",
-            "giraffe",
-            "cheetah",
-            "leopard",
-            "lion"
-          ],
-          "title": "Animal",
-          "type": "string"
-        },
-        "size": {
-          "default": 1.0,
-          "description": "Multiplier on the preset size (2 = twice as big).",
-          "ecoscope:advanced": true,
-          "exclusiveMinimum": 0.0,
-          "title": "Size",
-          "type": "number"
-        },
-        "use_track_color": {
-          "default": true,
-          "description": "Colour by each subject's track.",
-          "ecoscope:advanced": true,
-          "title": "Use subject color",
-          "type": "boolean"
-        },
-        "pbr_lighting": {
-          "default": true,
-          "description": "Uncheck for flat shading (truer colours).",
-          "ecoscope:advanced": true,
-          "title": "Realistic lighting (PBR)",
-          "type": "boolean"
-        }
-      },
-      "title": "3D animal",
+      "title": "On the 3D terrain",
       "type": "object"
     },
     "DotMarker": {
@@ -678,21 +695,20 @@
         "marker": {
           "const": "dot",
           "default": "dot",
-          "enum": [
-            "dot"
-          ],
           "title": "Marker icon",
           "type": "string"
         },
         "get_radius": {
           "default": 4.0,
+          "description": "Dot radius, in `radius_units` (pixels by default).",
           "ecoscope:advanced": true,
-          "exclusiveMinimum": 0.0,
+          "exclusiveMinimum": 0,
           "title": "Get Radius",
           "type": "number"
         },
         "radius_units": {
           "default": "pixels",
+          "description": "Units of the radius: 'pixels' (the same size at every zoom) or 'meters' (a real size on the ground).",
           "ecoscope:advanced": true,
           "enum": [
             "meters",
@@ -703,6 +719,7 @@
         },
         "stroked": {
           "default": true,
+          "description": "Draw an outline around the dot.",
           "ecoscope:advanced": true,
           "title": "Stroked",
           "type": "boolean"
@@ -713,6 +730,7 @@
             255,
             255
           ],
+          "description": "Outline colour as red, green, blue (0-255). Default white.",
           "ecoscope:advanced": true,
           "items": {
             "type": "integer"
@@ -735,13 +753,15 @@
         },
         "get_line_width": {
           "default": 1.5,
+          "description": "Outline width, in `line_width_units` (pixels by default). 0 = no outline.",
           "ecoscope:advanced": true,
-          "minimum": 0.0,
+          "minimum": 0,
           "title": "Get Line Width",
           "type": "number"
         },
         "line_width_units": {
           "default": "pixels",
+          "description": "Units of the outline width: 'pixels' (the same size at every zoom) or 'meters' (a real size on the ground).",
           "ecoscope:advanced": true,
           "enum": [
             "meters",
@@ -752,14 +772,63 @@
         },
         "opacity": {
           "default": 1,
+          "description": "Dot opacity, from 0 (invisible) to 1 (solid).",
           "ecoscope:advanced": true,
-          "maximum": 1.0,
-          "minimum": 0.0,
+          "maximum": 1,
+          "minimum": 0,
           "title": "Opacity",
           "type": "number"
         }
       },
       "title": "Dot",
+      "type": "object"
+    },
+    "ModelMarker": {
+      "description": "A ready-tuned 3D animal model: pick the animal, everything else is preset.\n\nDrawn as a ScenegraphLayerDefinition (to_model) with the animal's tuned orientation and size.",
+      "properties": {
+        "marker": {
+          "const": "model",
+          "default": "model",
+          "title": "Marker icon",
+          "type": "string"
+        },
+        "model": {
+          "default": "elephant",
+          "description": "Which preset model to show.",
+          "enum": [
+            "elephant",
+            "giraffe",
+            "cheetah",
+            "leopard",
+            "lion"
+          ],
+          "title": "Model",
+          "type": "string"
+        },
+        "size": {
+          "default": 1.0,
+          "description": "Multiplier on the animal's real size (1 = life size, 2 = twice as big). Zoomed out it is still drawn at least 30 px tall, so it stays visible.",
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 0,
+          "title": "Size",
+          "type": "number"
+        },
+        "use_track_color": {
+          "default": true,
+          "description": "Colour by each subject's track.",
+          "ecoscope:advanced": true,
+          "title": "Use subject color",
+          "type": "boolean"
+        },
+        "pbr_lighting": {
+          "default": true,
+          "description": "Uncheck for flat shading (truer colours).",
+          "ecoscope:advanced": true,
+          "title": "Realistic lighting (PBR)",
+          "type": "boolean"
+        }
+      },
+      "title": "3D model",
       "type": "object"
     },
     "CameraFromSettings": {
@@ -768,9 +837,6 @@
         "type_": {
           "const": "settings",
           "default": "settings",
-          "enum": [
-            "settings"
-          ],
           "title": "Camera",
           "type": "string"
         },
@@ -865,9 +931,6 @@
         "type_": {
           "const": "cinematic",
           "default": "cinematic",
-          "enum": [
-            "cinematic"
-          ],
           "title": "Camera",
           "type": "string"
         },
@@ -884,8 +947,8 @@
         "tilt": {
           "default": 55.0,
           "description": "Tilt in degrees (0 = straight down).",
-          "maximum": 80.0,
-          "minimum": 0.0,
+          "maximum": 80,
+          "minimum": 0,
           "title": "Tilt",
           "type": "number"
         },
@@ -899,7 +962,7 @@
         },
         "bearing_mode": {
           "default": "rotate",
-          "description": "'rotate' turns steadily by `rotate_deg` over the clip, 'heading' faces the direction of travel, 'fixed' keeps the heading.",
+          "description": "'rotate' turns steadily by `rotation` over the clip, 'heading' faces the direction of travel, 'fixed' keeps the heading.",
           "enum": [
             "rotate",
             "heading",
@@ -908,11 +971,11 @@
           "title": "Turning",
           "type": "string"
         },
-        "rotate_deg": {
+        "rotation": {
           "default": 45.0,
-          "description": "Total turn over the clip for 'rotate'.",
-          "maximum": 720.0,
-          "minimum": -720.0,
+          "description": "Total turn over the clip for 'rotate', in degrees.",
+          "maximum": 720,
+          "minimum": -720,
           "title": "Turn (\u00b0)",
           "type": "number"
         },
@@ -920,7 +983,7 @@
           "default": 0.12,
           "description": "Share of the clip spent flying in from the whole-scene view. 0 = start on the action.",
           "maximum": 0.5,
-          "minimum": 0.0,
+          "minimum": 0,
           "title": "Fly-in",
           "type": "number"
         },
@@ -937,15 +1000,15 @@
           "default": 0.1,
           "description": "Space left ahead of moving subjects, as a share of the view: the camera looks a little ahead, so they sit behind the centre with room to move into. 0 = centred.",
           "maximum": 0.5,
-          "minimum": 0.0,
+          "minimum": 0,
           "title": "Lead room",
           "type": "number"
         },
         "speed_zoom": {
           "default": 0.3,
           "description": "Zoom in (up to a level) while subjects rest or move slowly, and pull back while they travel fast. 0 = off, 1 = strongest.",
-          "maximum": 1.0,
-          "minimum": 0.0,
+          "maximum": 1,
+          "minimum": 0,
           "title": "Zoom with the action",
           "type": "number"
         },
@@ -960,7 +1023,7 @@
           "description": "Look ahead by this share of the timeline, so the camera leads.",
           "ecoscope:advanced": true,
           "maximum": 0.5,
-          "minimum": 0.0,
+          "minimum": 0,
           "title": "Lead Frac",
           "type": "number"
         },
@@ -968,8 +1031,8 @@
           "default": 0.1,
           "description": "Share of the timeline treated as 'recent' when framing.",
           "ecoscope:advanced": true,
-          "exclusiveMinimum": 0.0,
-          "maximum": 1.0,
+          "exclusiveMinimum": 0,
+          "maximum": 1,
           "title": "Follow Window",
           "type": "number"
         },
@@ -977,8 +1040,8 @@
           "default": 0.25,
           "description": "Share of the gap to the action closed every 1/30 s: low = smooth but laggy, 1 = snaps to it. Independent of fps.",
           "ecoscope:advanced": true,
-          "maximum": 1.0,
-          "minimum": 0.0,
+          "maximum": 1,
+          "minimum": 0,
           "title": "Follow Smoothing",
           "type": "number"
         },
@@ -1000,9 +1063,6 @@
         "type_": {
           "const": "fixed",
           "default": "fixed",
-          "enum": [
-            "fixed"
-          ],
           "title": "Camera",
           "type": "string"
         },
@@ -1022,7 +1082,7 @@
           "title": "Lat",
           "type": "number"
         },
-        "range_m": {
+        "range": {
           "default": null,
           "description": "Camera distance from the center in metres. Leave blank to fit the data in the frame.",
           "gt": 0,
@@ -1064,9 +1124,6 @@
         "type_": {
           "const": "fly_around",
           "default": "fly_around",
-          "enum": [
-            "fly_around"
-          ],
           "title": "Camera",
           "type": "string"
         },
@@ -1086,7 +1143,7 @@
           "title": "Lat",
           "type": "number"
         },
-        "range_m": {
+        "range": {
           "default": null,
           "description": "Camera distance from the center in metres. Leave blank to fit the data in the frame.",
           "gt": 0,
@@ -1121,15 +1178,15 @@
         "fly_frac": {
           "default": 0.25,
           "description": "Share of the clip spent flying in from the whole-scene view. 0 = start at the center.",
-          "maximum": 1.0,
-          "minimum": 0.0,
+          "maximum": 1,
+          "minimum": 0,
           "title": "Fly Frac",
           "type": "number"
         },
         "rounds": {
           "default": 1.0,
           "description": "Full turns around the center after arriving. 0 = hold.",
-          "minimum": 0.0,
+          "minimum": 0,
           "title": "Rounds",
           "type": "number"
         }
@@ -1143,9 +1200,6 @@
         "type_": {
           "const": "follow",
           "default": "follow",
-          "enum": [
-            "follow"
-          ],
           "title": "Camera",
           "type": "string"
         },
@@ -1195,15 +1249,15 @@
           "default": 0.1,
           "description": "Space left ahead of moving subjects, as a share of the view: the camera looks a little ahead, so they sit behind the centre with room to move into. 0 = centred.",
           "maximum": 0.5,
-          "minimum": 0.0,
+          "minimum": 0,
           "title": "Lead room",
           "type": "number"
         },
         "speed_zoom": {
           "default": 0.3,
           "description": "Zoom in (up to a level) while subjects rest or move slowly, and pull back while they travel fast. 0 = off, 1 = strongest.",
-          "maximum": 1.0,
-          "minimum": 0.0,
+          "maximum": 1,
+          "minimum": 0,
           "title": "Zoom with the action",
           "type": "number"
         },
@@ -1217,8 +1271,8 @@
           "default": 0.1,
           "description": "Share of the timeline treated as 'recent' when framing.",
           "ecoscope:advanced": true,
-          "exclusiveMinimum": 0.0,
-          "maximum": 1.0,
+          "exclusiveMinimum": 0,
+          "maximum": 1,
           "title": "Follow Window",
           "type": "number"
         },
@@ -1226,8 +1280,8 @@
           "default": 0.25,
           "description": "Share of the gap to the action closed every 1/30 s: low = smooth but laggy, 1 = snaps to it. Independent of fps.",
           "ecoscope:advanced": true,
-          "maximum": 1.0,
-          "minimum": 0.0,
+          "maximum": 1,
+          "minimum": 0,
           "title": "Follow Smoothing",
           "type": "number"
         },
@@ -1244,14 +1298,11 @@
       "type": "object"
     },
     "FollowSubjectCamera": {
-      "description": "Stays on one subject at a set range and tilt, behind it and facing where it is heading, lagging a\nlittle behind its moves.",
+      "description": "Stays behind one subject at a set distance (range) and tilt, facing where it is going next. Its path\nand turns are smoothed both ways in time, so the subject stays in the middle of the frame.",
       "properties": {
         "type_": {
           "const": "chase",
           "default": "chase",
-          "enum": [
-            "chase"
-          ],
           "title": "Camera",
           "type": "string"
         },
@@ -1261,18 +1312,18 @@
           "title": "Subject",
           "type": "string"
         },
-        "range_m": {
-          "default": 800.0,
-          "description": "Camera distance from the subject in metres.",
-          "exclusiveMinimum": 0.0,
+        "range": {
+          "default": 100.0,
+          "description": "Camera distance from the subject in metres. Around 100 m shows a 3D animal at its real size; raise it to see more of the land around it.",
+          "exclusiveMinimum": 0,
           "title": "Range (m)",
           "type": "number"
         },
         "tilt": {
           "default": 60.0,
           "description": "Tilt in degrees (0 = straight down).",
-          "maximum": 80.0,
-          "minimum": 0.0,
+          "maximum": 80,
+          "minimum": 0,
           "title": "Tilt",
           "type": "number"
         },
@@ -1294,18 +1345,18 @@
           "type": "number"
         },
         "lead_room": {
-          "default": 0.15,
+          "default": 0.0,
           "description": "Space left ahead of moving subjects, as a share of the view: the camera looks a little ahead, so they sit behind the centre with room to move into. 0 = centred.",
           "maximum": 0.5,
-          "minimum": 0.0,
+          "minimum": 0,
           "title": "Lead room",
           "type": "number"
         },
         "speed_zoom": {
-          "default": 0.5,
+          "default": 0.0,
           "description": "Zoom in (up to a level) while subjects rest or move slowly, and pull back while they travel fast. 0 = off, 1 = strongest.",
-          "maximum": 1.0,
-          "minimum": 0.0,
+          "maximum": 1,
+          "minimum": 0,
           "title": "Zoom with the action",
           "type": "number"
         },
@@ -1317,19 +1368,19 @@
         },
         "follow_smoothing": {
           "default": 0.3,
-          "description": "Share of the gap to the subject closed every 1/30 s: low = drifts behind, 1 = locked on.",
+          "description": "How closely the camera keeps to the subject's every move: low = smooths over its zigzags (up to a second of video either side), 1 = locked on.",
           "ecoscope:advanced": true,
-          "maximum": 1.0,
-          "minimum": 0.0,
+          "maximum": 1,
+          "minimum": 0,
           "title": "Follow Smoothing",
           "type": "number"
         },
         "turn_smoothing": {
           "default": 0.15,
-          "description": "Share of the turn towards the direction of travel made every 1/30 s: low = slow, sweeping turns, 1 = snaps.",
+          "description": "How quickly the camera turns to stay behind the subject: low = slow, sweeping turns (up to two seconds of video), 1 = turns at once.",
           "ecoscope:advanced": true,
-          "maximum": 1.0,
-          "minimum": 0.0,
+          "maximum": 1,
+          "minimum": 0,
           "title": "Turn Smoothing",
           "type": "number"
         }
@@ -1343,9 +1394,6 @@
         "type_": {
           "const": "keyframes",
           "default": "keyframes",
-          "enum": [
-            "keyframes"
-          ],
           "title": "Camera",
           "type": "string"
         },
@@ -1413,9 +1461,6 @@
         "type_": {
           "const": "file",
           "default": "file",
-          "enum": [
-            "file"
-          ],
           "title": "Source",
           "type": "string"
         },
@@ -1435,9 +1480,6 @@
         "type_": {
           "const": "subject",
           "default": "subject",
-          "enum": [
-            "subject"
-          ],
           "title": "Source",
           "type": "string"
         },
@@ -1452,14 +1494,11 @@
       "type": "object"
     },
     "SubjectTourCamera": {
-      "description": "Follows each subject in turn for an equal share of the clip, flying from one to the next, with a\nname card as each one comes in.",
+      "description": "Follows each subject in turn for an equal share of the clip, from behind at a set distance (range)\nand tilt, flying from one to the next, with a name card as each one comes in.",
       "properties": {
         "type_": {
           "const": "tour",
           "default": "tour",
-          "enum": [
-            "tour"
-          ],
           "title": "Camera",
           "type": "string"
         },
@@ -1472,18 +1511,18 @@
           "title": "Subjects",
           "type": "array"
         },
-        "range_m": {
-          "default": 800.0,
-          "description": "Camera distance from the subject in metres.",
-          "exclusiveMinimum": 0.0,
+        "range": {
+          "default": 100.0,
+          "description": "Camera distance from the subject in metres. Around 100 m shows a 3D animal at its real size; raise it to see more of the land around it.",
+          "exclusiveMinimum": 0,
           "title": "Range (m)",
           "type": "number"
         },
         "tilt": {
           "default": 60.0,
           "description": "Tilt in degrees (0 = straight down).",
-          "maximum": 80.0,
-          "minimum": 0.0,
+          "maximum": 80,
+          "minimum": 0,
           "title": "Tilt",
           "type": "number"
         },
@@ -1514,23 +1553,23 @@
           "default": 0.2,
           "description": "Share of each subject's turn spent flying over from the previous one.",
           "maximum": 0.9,
-          "minimum": 0.0,
+          "minimum": 0,
           "title": "Fly between",
           "type": "number"
         },
         "lead_room": {
-          "default": 0.15,
+          "default": 0.0,
           "description": "Space left ahead of moving subjects, as a share of the view: the camera looks a little ahead, so they sit behind the centre with room to move into. 0 = centred.",
           "maximum": 0.5,
-          "minimum": 0.0,
+          "minimum": 0,
           "title": "Lead room",
           "type": "number"
         },
         "speed_zoom": {
-          "default": 0.5,
+          "default": 0.0,
           "description": "Zoom in (up to a level) while subjects rest or move slowly, and pull back while they travel fast. 0 = off, 1 = strongest.",
-          "maximum": 1.0,
-          "minimum": 0.0,
+          "maximum": 1,
+          "minimum": 0,
           "title": "Zoom with the action",
           "type": "number"
         },
@@ -1542,19 +1581,19 @@
         },
         "follow_smoothing": {
           "default": 0.3,
-          "description": "Share of the gap to the subject closed every 1/30 s: low = drifts behind, 1 = locked on.",
+          "description": "How closely the camera keeps to the subject's every move: low = smooths over its zigzags (up to a second of video either side), 1 = locked on.",
           "ecoscope:advanced": true,
-          "maximum": 1.0,
-          "minimum": 0.0,
+          "maximum": 1,
+          "minimum": 0,
           "title": "Follow Smoothing",
           "type": "number"
         },
         "turn_smoothing": {
           "default": 0.15,
-          "description": "Share of the turn towards the direction of travel made every 1/30 s: low = slow, sweeping turns, 1 = snaps.",
+          "description": "How quickly the camera turns to stay behind the subject: low = slow, sweeping turns (up to two seconds of video), 1 = turns at once.",
           "ecoscope:advanced": true,
-          "maximum": 1.0,
-          "minimum": 0.0,
+          "maximum": 1,
+          "minimum": 0,
           "title": "Turn Smoothing",
           "type": "number"
         }
@@ -1568,9 +1607,6 @@
         "preset": {
           "const": "custom",
           "default": "custom",
-          "enum": [
-            "custom"
-          ],
           "title": "Resolution",
           "type": "string"
         },
@@ -1578,6 +1614,7 @@
           "default": 1280,
           "description": "Custom video width in pixels.",
           "exclusiveMinimum": 0,
+          "maximum": 3840,
           "title": "Width",
           "type": "integer"
         },
@@ -1585,6 +1622,7 @@
           "default": 720,
           "description": "Custom video height in pixels.",
           "exclusiveMinimum": 0,
+          "maximum": 3840,
           "title": "Height",
           "type": "integer"
         }
@@ -1603,7 +1641,8 @@
         "seconds": {
           "default": 30.0,
           "description": "Video duration in seconds. Only used when 'Auto' is unchecked.",
-          "exclusiveMinimum": 0.0,
+          "exclusiveMinimum": 0,
+          "maximum": 600,
           "title": "Duration (seconds)",
           "type": "number"
         }
@@ -1702,6 +1741,12 @@
         "timezone"
       ]
     },
+    "convert_to_trajs": {
+      "ui:order": [
+        "trajectory_segment_filter",
+        "trajectory_segment_filter_overrides"
+      ]
+    },
     "Terrain": {
       "ui:order": [
         "terrain_exaggeration",
@@ -1733,8 +1778,7 @@
       "create_controls": {
         "ui:order": [
           "position",
-          "show_camera",
-          "show_map_controls"
+          "show_camera"
         ]
       }
     },
